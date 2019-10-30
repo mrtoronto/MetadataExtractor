@@ -1,3 +1,4 @@
+import time
 import os
 import pandas as pd
 import xml.etree.ElementTree as ET
@@ -71,7 +72,13 @@ def get_sample_data(query, filename, retmax, sort, have_ids=False, api_key="", D
         if DEBUG >= 2:
             print(f'Search URL : {url_search}')
 
-        docsearch_resp = requests.get(url_search)
+        try:
+            docsearch_resp = requests.get(url_search)
+        except requests.exceptions.ConnectionError as e:
+            print(e)
+            print('Sleeping for 1 min then retrying')
+            time.sleep(60)
+            docsearch_resp = requests.get(url_search)
 
 
 

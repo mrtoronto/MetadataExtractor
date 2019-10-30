@@ -19,13 +19,12 @@ Arguments:
 
 """
 
-def geo_txt_parse(list_of_ids_querys, DEBUG = False):
+def geo_txt_parse(list_of_ids_querys, DEBUG = False, keep_files = [None]):
 
     now = datetime.datetime.now()
     row_list = []
 
     for filename, query_name in list_of_ids_querys:
-        print('1', query_name)
         series_text_list = []
         sample_text_list = []
         platform_text_list = []
@@ -105,6 +104,7 @@ def geo_txt_parse(list_of_ids_querys, DEBUG = False):
             row = [query_name, series, series_accession, series_ftp, platform, platform_accession, platform_ftp, sample, contents]
             row_list.append(row)
 
-        os.unlink(filename)
+        if 'txt' not in keep_files:
+            os.unlink(filename)
 
     return row_list

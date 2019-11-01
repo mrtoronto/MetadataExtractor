@@ -1,3 +1,4 @@
+import json
 from tqdm import tqdm
 import time
 import pandas as pd
@@ -8,127 +9,106 @@ import os
 from src.ftp_gzxml_parser import xml_parser
 
 """
-Arguments:
+Parameters:
     `query_terms`     - Series/list of terms to feed into the API
-    `res_per_query`   - Max number of results one query will pull. Defaults to 50 and shouldn't need to be touched.
     `api_key`         - If you have an API key, call limit goes up to 10/s so you could lower time.sleep(1) to time.sleep(.5) which may be worth it for pulling 10,000+ records at once
-    `out_path`        - Output path, includes filename, defaults to /output/test.csv
-
+    `DEBUG`           - Adds some DEBUG print options. Being phased out. Soon to deprecate.
+    `multichannel`    - Flag telling the program to skip samples with multichannels found in meta-data.
+    `out_path`        - Output path, does not include extension as the correct extension will be added. Defaults to /output/test
+    `keep_files`      - Option to keep certain files used during the process. Options include 'txt' and 'xml'.
+    `out_types`       - File type of output files. Options include 'json' and 'csv'
 
 Output:
-    files created:
-        `out_path`            - This file will have the final table with Samples as the index and associated metadata merged
+    - File type is decided by files in `out_type`. By default, create both CSV and JSON.
+    - Files will be named based on `out_path` with the corresponding extension added.
+    - Files have sampleID as key/index and then associated data as values/columns.
+
 
 """
 
+def scrape_gds(query_terms,
+                api_key,
+                DEBUG = 0,
+                multichannel = False,
+                out_path = '/output/test',
+                keep_files = [None],
+                out_types = ['json', 'csv']):
 
-def scrape_gds_to_csv(query_terms,
-                        api_key,
-                        res_per_query = 50,
-                        DEBUG = 0,
-                        multichannel = False,
-                        out_path = '/output/test.csv',
-                        keep_files = [None]):
+    for file_type in keep_files:
+        if (file_type != 'txt') and (file_type != 'xml'):
+            raise ValueError(f'{file_type} is not a valid option for `keep_files`. Please enter either `xml` and/or `csv`.')
+    for file_type in out_types:
+        if (file_type != 'json') and (file_type != 'csv'):
+            raise ValueError(f'{file_type} is not a valid option for `out_type`. Please enter either `csv` and/or `json`.')
 
-    if DEBUG >= 1:
-        print(f'length of query_terms: {len(query_terms)}.')
-
-    ### List elements will be lists containing [filename of sample API data, sample ID]
+    ### `parse_list` elements will be lists containing [filename of sample API data, sample ID]
+    ### [GSM4667_19-10-31-1954_fetch.txt, GSM4667]
     parse_list=[]
-
     print('Creating sample .txt files')
     for query_term in tqdm(query_terms, total=len(query_terms)):
-        search_ids_list = get_sample_data(
-                    have_ids=False,
-                    query=query_term,
-                    retmax=res_per_query,
-                    sort='relevance',
-                    filename=None,
-                    api_key=api_key,
-                    DEBUG=0
-                )
+        search_ids_list = get_sample_data(query=query_term, api_key=api_key)
         parse_list.append(search_ids_list)
         time.sleep(1)
 
     """
-    `txt_file_list` elements are lists containing the following:
-        [query_name, series, series_accession, series_ftp, platform, platform_accession, platform_ftp, sample, contents]
+    `txt_file_dict` elements are lists containing the following:
+        txt_file_dict[sample_id] = {'sample_id' : sample_id,
+                                'series' : series,
+                                'series_accession' : series_accession,
+                                'series_ftp' : series_ftp,
+                                'platform' : platform,
+                                'platform_accession' : platform_accession,
+                                'platform_ftp' : platform_ftp,
+                                'sample' : sample,
+                                'contents' : contents}
+
     """
     print('Parsing the .txt files.')
-    txt_file_list = geo_txt_parse(parse_list, DEBUG=False, keep_files = keep_files)
+    text_file_dict = geo_txt_parse(parse_list, keep_files = keep_files)
 
-    samples_column_list = ['query_name', 'series_text', 'series_accession', 'series_ftp', 'platform_text', 'platform_accession', 'platform_ftp', 'sample_text', 'contents']
-    samples = pd.DataFrame(txt_file_list, columns=samples_column_list).set_index('query_name')
-
-    if DEBUG >= 2:
-        print(f'samples shape: {samples.shape}')
-
+    samples_series_accession_numbers = [i['series_accession'] for i in text_file_dict.values()]
+    samples_series_ftp_links = [i['series_ftp'] for i in text_file_dict.values()]
 
     """
-    `series_ftp_list` elements are dictionaries containing the following:
-        {'sample_id' : sample_id,
-        'sample_source' : sample_source,
-        'sample_title' : sample_title,
-        'molecule' : molecule,
-        'treatment_protocol' : treatment_protocol,
-        'extract_protocol' : extract_protocol,
-        'growth_protocol' : growth_protocol,
-        'sample_cell_type' : sample_cell_type,
-        'sample_sex' : sample_sex,
-        'sample_tissue' : sample_tissue,
-        'sample_age' : sample_age
-        }
+    Prepare a slot in the metadata dictionary for all the requested samples.
+    Also created a series -> PMID dictionary using all the requested samples series' number
     """
-    series_ftp_list=[]
-    samples['pmid'] = ''
-    series_pmid_dict = {key:value for key,value in zip(samples['series_accession'],samples['pmid'])}
-
-    if DEBUG >= 1:
-        ftp_link_len = len(samples['series_ftp'])
-        uni_ftp_link_len = len(samples['series_ftp'].unique())
-        print(f'Number of FTP Series links: {ftp_link_len}     //  Number of unique FTP Series links: {uni_ftp_link_len}')
+    samples_metadata_dict = {key:dict() for key in query_terms}
+    series_pmid_dict = {key:'' for key in samples_series_accession_numbers}
 
     print('Downloading and collecting meta-data')
-    for url in tqdm(samples['series_ftp'].unique(), total=len(samples['series_ftp'].unique())):
+    for url in tqdm(list(set(samples_series_ftp_links)), total=len(list(set(samples_series_ftp_links)))):
         if url == None:
             ### Empty dict if broken URL
-            url_meta = dict()
+            series_meta_dict = dict()
             xml_pmid_list = []
         else:
             """
-            Returns list of dictionaries
-                 Each dict == 1 Sample in this Series
-                 Could give it a list of already parsed samples so its not re-parsing anything but I skipped this for now
+            `xml_parser` will take in a Series FTP Download URL and return,
+                -   `xml_pmid_list` is a dictionary of series -> PMID mappings from the file
+                -   `series_meta_dict`
             """
-            url_meta, xml_pmid_list = xml_parser(url, parse_platforms = False, DEBUG=0, multichannel = multichannel, keep_files = keep_files)
-        ### Series_ftp_list == list of list of dictionaries
-        series_ftp_list += url_meta
+            xml_pmid_list, series_meta_dict = xml_parser(url, multichannel = multichannel, keep_files = keep_files)
+        ### Update relevant dictionaries
         series_pmid_dict.update(xml_pmid_list)
-    ### Flattening to list of dictionaries
-    #series_ftp_list = [series_dict for sublist in series_ftp_list for series_dict in sublist]
-    #series_pmid_list = [pmid_dict for sublist in series_pmid_list for pmid_dict in sublist]
-    #metadata_columns = ['sample_id', 'sample_source', 'sample_title', 'molecule', 'treatment_protocol', 'extract_protocol', 'growth_protocol', 'sample_cell_type', 'sample_sex', 'sample_tissue', 'sample_age']
-    samples_metadata = pd.DataFrame(series_ftp_list, columns=series_ftp_list[0].keys()).set_index('sample_id')
+        samples_metadata_dict.update(series_meta_dict)
 
-    if DEBUG >= 2:
-        print(f'samples_metadata shape: {samples_metadata.shape}')
 
-    merg_samples = samples.merge(samples_metadata, left_index = True, right_index = True, how='left')
+    ### Run through all the requested samples, add metadata and PMID to `text_file_dict`
+    for sample_id in text_file_dict.keys():
+        text_file_dict[sample_id].update(samples_metadata_dict[sample_id])
+        text_file_dict[sample_id]['pmid'] = series_pmid_dict[text_file_dict[sample_id]['series_accession']]
+
+    ### If multichannel == False, `xml_parser` will mark the multichannel samples in the metadata,
+    ### this dictionary comprehension actually removes them.
     if multichannel == False:
-        merg_samples = merg_samples[merg_samples['description'] != 'multi']
-    merg_samples['pmid'] = [series_pmid_dict[i] for i in merg_samples['series_accession']]
-    ### This requires no lists in the DataFrame
-    ### Not normally an issue to turn it off but I like it better with it on
-    merg_samples = merg_samples.drop_duplicates()
+        text_file_dict = {k:v for (k,v) in text_file_dict.items() if v['description'] != 'multi'}
 
-    if DEBUG >= 1:
-        print(f'samples shape post-merge: {merg_samples.shape}')
-    ### Set up with date to save multiple runs, I don't because I'm doing lots of runs
-    if out_path is not None:
-        merg_samples.to_csv(out_path, index=True)
-    if DEBUG >= 2:
-        meta_csv_filename = 'output/meta_debug.csv'
-        presample_csv_filename = 'output/pre_debug.csv'
-        samples_metadata.to_csv(meta_csv_filename, index=True)
-        samples.to_csv(presample_csv_filename, index=True)
-    return merg_samples
+    ### Export data
+    if 'json' in out_types:
+        with open(f'{out_path}.json', 'w') as fout:
+            json.dump(text_file_dict, fout, indent = 4)
+    if 'csv' in out_types:
+        pd.DataFrame.from_dict(text_file_dict, orient='index').to_csv(f'{out_path}.csv')
+
+    return text_file_dict

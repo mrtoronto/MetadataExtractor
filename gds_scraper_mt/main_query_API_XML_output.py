@@ -1,29 +1,43 @@
-from src.scrape_gds import scrape_gds_to_csv
+from src.scrape_gds import scrape_gds
 import pandas as pd
 import random
 
-num_samples = 20
-### Set to false for `num_samples` random samples, else pull `num_samples` samples in a row
+def main(sampleIDs, organism, out_path, multichannel_flag, keep_files_list, out_types_list):
+
+    scrape_dict = scrape_gds(query_terms = sampleIDs,
+                    api_key = "",
+                    multichannel = multichannel_flag, ### In progress
+                    DEBUG=1,
+                    out_path = out_path,
+                    keep_files = keep_files_list,
+                    out_types = out_types_list
+                    )
+    print(f'Scrape successful. File saved to {out_path}')
+    return scrape_dict
+
+
+#######################################################
+
+### SampleIDs parameters
+num_samples = 200
+### Set to False for random sample, else pull `num_samples` samples in a row starting at a random sample.
 samples_in_order = False
 
-
-query_terms = pd.read_csv('data/GEO_MusmusculusSamples0.csv', index_col=[0], names=['sample_ID'], header=0)
+sampleIDs = pd.read_csv('data/GEO_MusmusculusSamples.csv', index_col=[0], names=['sample_ID'], header=0)
 
 if samples_in_order == True:
-    rand_num = random.randint(0, len(query_terms) - num_samples)
-    query_terms = list(query_terms['sample_ID'][rand_num:rand_num+num_samples].unique())
+    rand_num = random.randint(0, len(sampleIDs) - num_samples)
+    sampleIDs = list(sampleIDs['sample_ID'][rand_num:rand_num+num_samples].unique())
 else:
-    query_terms = list(query_terms['sample_ID'].sample(num_samples))
+    sampleIDs = list(sampleIDs['sample_ID'].sample(num_samples))
 
-#query_terms = query_terms + ['GSM1394796']
-out_path = 'output/test_small.csv'
+organism = 'Mus musculus'
+out_path = 'output/test_200'
+multichannel_flag = True
+keep_files_list = ['xml', 'txt']
+out_types_list = ['json', 'csv']
 
-csv_name = scrape_gds_to_csv(query_terms = query_terms,
-                                api_key = "",
-                                multichannel = False, ### In progress
-                                DEBUG=1,
-                                out_path = out_path,
-                                keep_files = [None],
-                                )
 
-print(out_path)
+if __name__ == "__main__":
+
+    main(sampleIDs, organism, out_path, multichannel_flag, keep_files_list, out_types_list)

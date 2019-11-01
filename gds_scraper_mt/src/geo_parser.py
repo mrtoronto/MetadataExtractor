@@ -12,34 +12,30 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=GSM385577
 
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=gds&query_key=1&WebEnv=NCID_1_43256172_130.14.18.97_9001_1571760482_60187628_0MetA0_S_MegaStore&rettype=abstract&retmode=xml&retmax=20
 
-Arguments:
+Parameters:
+    list_of_ids_querys      - List of two element lists. Elements created by `get_sample_data`
+        - [location of text file, query_term] ; [GSM4667_19-10-31-1954_fetch.txt, GSM4667]
 
-    - list_of_ids_querys = [ids_fetch_file, query_term]
-        ids_fetch_file =
 
 """
 
-def geo_txt_parse(list_of_ids_querys, DEBUG = False, keep_files = [None]):
+def geo_txt_parse(loc_query_list, keep_files = [None]):
 
     now = datetime.datetime.now()
     row_list = []
+    rows_dict = {}
 
-    for filename, query_name in list_of_ids_querys:
+    for filename, query_name in loc_query_list:
         series_text_list = []
         sample_text_list = []
         platform_text_list = []
         platform_text = ''
         sample_text = ''
-        if DEBUG == True:
-            print(filename, query_name)
 
         with open(filename, 'r') as f:
             contents = f.read()
 
         contents = contents.strip()
-
-        if DEBUG == True:
-            print(contents)
 
         results_list = contents.split("\n\n")
 
@@ -102,9 +98,18 @@ def geo_txt_parse(list_of_ids_querys, DEBUG = False, keep_files = [None]):
                 pass
 
             row = [query_name, series, series_accession, series_ftp, platform, platform_accession, platform_ftp, sample, contents]
+            rows_dict[query_name] = {'sample_id' : query_name,
+                                    'series' : series,
+                                    'series_accession' : series_accession,
+                                    'series_ftp' : series_ftp,
+                                    'platform' : platform,
+                                    'platform_accession' : platform_accession,
+                                    'platform_ftp' : platform_ftp,
+                                    'sample' : sample,
+                                    'contents' : contents}
             row_list.append(row)
 
         if 'txt' not in keep_files:
             os.unlink(filename)
 
-    return row_list
+    return rows_dict

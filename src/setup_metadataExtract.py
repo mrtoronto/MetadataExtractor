@@ -48,7 +48,8 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     parseAgeIDs = ['Characteristics', 'Description', 'Treatment protocol', 
     'Growth protocol'], convertAgeTo = 'week', checkAgeConverts = ['day', 'week',
     'month', 'year'], nullReturn = 'n/a', tryAgeStudy = True,
-    parseStudyIDs = ['Summary', 'Overall design']):
+    parseStudyIDs = ['Summary', 'Overall design'], tryAgePMID = True,
+    pmidSection = 'methods'):
     """ Extract metadata from a GEO GSM ID. Options to keep detected
         in vitro samples, and to exclude multichannel expression assays (e.g. 
         microarrays). Not all structured entries need to be parsed, however
@@ -79,7 +80,11 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
             tryAgeStudy: Bool - If no age is found, attempt to find age in the 
                 GSE study page
             parseStudyIDs: List geoAgeExtract()
-
+            tryAgePMID: Bool - Resort to full text extraction if no age can be
+                extracted some GSE nor GSM
+            pmidSection: Str - Full-text paper section in which to expect an age
+                value. Default to 'methods'
+            
         Returns:
             meta - Dict: Items in extracts for sampleID
     """
@@ -127,10 +132,12 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
         elif extract == 'Organism':
             meta[extract] = GEOOrganism
         elif extract == 'Age':
-            meta[extract] = geoAgeExtract(urlText = urlGetText, 
+            meta[extract], ageSource = geoAgeExtract(urlText = urlGetText, 
                     parseAgeIDs = parseAgeIDs, convertTo = convertAgeTo, 
                     nullReturn = nullReturn, checkConverts = checkAgeConverts,
-                    tryAgeStudy = tryAgeStudy, parseStudyIDs = parseStudyIDs)
+                    tryAgeStudy = tryAgeStudy, parseStudyIDs = parseStudyIDs,
+                    tryAgePMID = tryAgePMID, pmidSection = pmidSection)
+            meta['Age Source'] = ageSource
         elif extract == 'Gender':
             meta[extract] = geoGenderExtract(urlGetText)
         elif extract == 'Expression':
@@ -186,7 +193,8 @@ def geoSampleCellCheck(urlText, cellDetectChar = 'cell lines?\:',
 def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
      'Description', 'Treatment protocol', 'Growth protocol'], convertTo = 'week',
     nullReturn = 'n/a', checkConverts = ['day', 'week', 'month', 'year'],
-    tryAgeStudy = True, parseStudyIDs = ['Summary', 'Overall design']):
+    tryAgeStudy = True, parseStudyIDs = ['Summary', 'Overall design'],
+    tryAgePMID = True, pmidSection = 'methods'):
     """ Extract age from GEO sample (GSM) text. Either/or the 'Characteristics'
         or protocols/descriptions entries. See numericTimeConvert() docstring for
         more detail on the approach. Return null on cell detect. If the same age
@@ -204,12 +212,17 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
             tryAgeStudy: Bool - If no age is found, attempt to find age in the 
                 GSE study page
             parseStudyIDs: List - Entries within url text if GSE study is checked
+            tryAgePMID: Bool - Resort to full text extraction if no age can be
+                extracted some GSE nor GSM
+            pmidSection: Str - Full-text paper section in which to expect an age
+                value. Default to 'methods'
 
         Return:
             age: Float - Estimated age
+            source: Str - Source of age scrape('Sample', 'Study', 'Text')
     """
     if geoSampleCellCheck(urlText) is True and checkCell == True:
-        return nullReturn
+        return nullReturn, nullReturn
 
     ageCounter, charAge = [], nullReturn
     
@@ -231,24 +244,30 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
 
     if charAge != nullReturn:
         if charAge in ageCounter:
-            return sum(ageCounter)
+            return sum(ageCounter), 'Sample'
         elif charAge not in ageCounter and len(ageCounter) > 0:
-            return sum([charAge, sum(ageCounter)])
+            return sum([charAge, sum(ageCounter)]), 'Sample'
         else:
-            return charAge
+            return charAge, 'Sample'
     elif charAge == nullReturn and len(ageCounter) > 0:
-        return sum(ageCounter)
+        return sum(ageCounter), 'Sample'
     else:
         if tryAgeStudy is True:
             gseAttempt = gseAgeExtract(urlText = urlText, convertTo = convertTo, 
                 checkConverts = checkConverts, parseIDs = parseStudyIDs,
                 nullReturn = nullReturn)
-            if gseAttempt == nullReturn:
-                return nullReturn #New function
+            if gseAttempt == nullReturn and tryAgePMID is True:
+                pmidAttempt = pmidAgeExtract(urlText = urlText, sectionID = pmidSection,
+                    convertTo = convertTo, checkConverts = checkConverts,
+                    nullReturn =  nullReturn)
+                return pmidAttempt, 'Text'
+
+            elif gseAttempt == nullReturn and tryAgePMID is False:
+                return nullReturn, 'Study'
             else:
-                return gseAttempt
+                return gseAttempt, 'Study'
         else:
-            return nullReturn
+            return nullReturn, 'Sample'
 
 
 def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week', 

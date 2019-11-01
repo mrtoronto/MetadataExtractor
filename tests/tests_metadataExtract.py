@@ -116,7 +116,9 @@ class TestDataProcess(unittest.TestCase):
     def test_geoAgeExtract(self):
         """ Check: Proper age on hand-picked test samples. Failed pickups on 
             alternative parse IDs. Check age extraction from GSE if age cannot
-            be detected from sample. """
+            be detected from sample. 
+            
+            TODO: Full text checks"""
 
         samp1, samp2, samp3 = 'GSM400641', 'GSM937915', 'GSM1402452'
         samp4, samp5, samp6 = 'GSM1418737', 'GSM1282831', 'GSM172972'
@@ -127,27 +129,51 @@ class TestDataProcess(unittest.TestCase):
         samp5Text = requests.get(gsmURL + samp5).text
         samp6Text = requests.get(gsmURL + samp6).text
 
-        self.assertAlmostEqual(4.28571428, util.geoAgeExtract(samp1Text))
-        self.assertEqual('n/a', util.geoAgeExtract(samp2Text))
-        self.assertEqual('n/a', util.geoAgeExtract(samp3Text))
-        self.assertEqual(13.5, util.geoAgeExtract(samp4Text))
-        self.assertEqual(16, util.geoAgeExtract(samp5Text))
-        self.assertEqual('n/a', util.geoAgeExtract(samp6Text, tryAgeStudy = False))
-        self.assertEqual(13.5, util.geoAgeExtract(samp6Text, tryAgeStudy = True))
-        
-        self.assertAlmostEqual(4.28571428, util.geoAgeExtract(samp1Text, 
-            parseAgeIDs = ['Characteristics']))
-        self.assertEqual('n/a', util.geoAgeExtract(samp2Text,
-            parseAgeIDs = ['Characteristics']))
-        self.assertEqual('n/a', util.geoAgeExtract(samp3Text,
-            parseAgeIDs = ['Characteristics']))
-        self.assertEqual(1, util.geoAgeExtract(samp4Text,
-            parseAgeIDs = ['Characteristics']))
-        self.assertEqual('n/a', util.geoAgeExtract(samp5Text,
-            parseAgeIDs = ['Characteristics'], tryAgeStudy = False))
-        self.assertEqual(16, util.geoAgeExtract(samp5Text,
-            parseAgeIDs = ['Characteristics'], tryAgeStudy = True))
+        v1, s1 = util.geoAgeExtract(samp1Text)
+        self.assertAlmostEqual(4.28571428, v1)
+        self.assertEqual('Sample', s1)
 
+        v2, s2 = util.geoAgeExtract(samp2Text)
+        self.assertEqual('n/a', v2)
+        self.assertEqual('n/a', s2)
+
+        v3, s3 = util.geoAgeExtract(samp3Text, tryAgePMID = False)
+        self.assertEqual('n/a', v3)
+        self.assertEqual('Study', s3)
+
+        v4, s4 = util.geoAgeExtract(samp4Text)
+        self.assertEqual(13.5, v4)
+        self.assertEqual('Sample', s4)
+
+        v5, s5 = util.geoAgeExtract(samp5Text)
+        self.assertEqual(16, v5)
+        self.assertEqual('Sample', s5)
+
+        v6a, s6a = util.geoAgeExtract(samp6Text, tryAgeStudy = False)
+        self.assertEqual('n/a', v6a)
+        self.assertEqual('Sample', s6a)
+        
+        v6b, s6b = util.geoAgeExtract(samp6Text, tryAgeStudy = True)
+        self.assertEqual(13.5, v6b)
+        self.assertEqual('Study', s6b)
+
+        v1, s1 = util.geoAgeExtract(samp1Text, parseAgeIDs = ['Characteristics'])
+        self.assertAlmostEqual(4.28571428, v1)
+        
+        v2, s2 = util.geoAgeExtract(samp2Text, parseAgeIDs = ['Characteristics'])
+        self.assertEqual('n/a', v2)
+        
+        v4, s4 = util.geoAgeExtract(samp4Text, parseAgeIDs = ['Characteristics'])
+        self.assertEqual(1, v4)
+        
+        v5a, s5a = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
+            tryAgeStudy = False)
+        self.assertEqual('n/a', v5a)
+        
+        v5b, s5b = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
+            tryAgeStudy = True)
+        self.assertEqual(16, v5b)
+        
 
     def test_extractGEOSampleInfo(self):
         """ Check: Starting from the sample ID, proper extractions (including gender) """
@@ -166,7 +192,7 @@ class TestDataProcess(unittest.TestCase):
 
         samp1Dict = util.extractGEOSampleInfo(samp1)
         samp2Dict = util.extractGEOSampleInfo(samp2)
-        samp3Dict = util.extractGEOSampleInfo(samp3)
+        samp3Dict = util.extractGEOSampleInfo(samp3, tryAgePMID = False)
         samp4Dict = util.extractGEOSampleInfo(samp4)
         samp5Dict = util.extractGEOSampleInfo(samp5)
         

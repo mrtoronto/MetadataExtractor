@@ -291,7 +291,6 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
     text = re.sub('(\D)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     text = re.sub('(\d+)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     
-    #nums = 0
     nums, durs = [], []
     for convertFrom in checkConverts:
         
@@ -364,10 +363,39 @@ def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day',
     re2 = timeReDict[convertFrom]['timeMatch2']
     re3 = timeReDict[convertFrom]['timeMatch3']
 
-    timeMatches1 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
-    timeMatches2 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
-    timeMatchesDur1 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
-    timeMatchesDur2 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
+    timeMatches1 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|'
+                '(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}|(?<!after )(\d+\-?\d+?){0}|'
+                '(?<!after )(\d+\-?\d+?){1}|(?<!after )(\d+){0}|(?<!after )(\d+){1}|'
+                '(?<!after )(\d+\.?\d+?){0}|(?<!after )(\d+\.?\d+?){1}|'
+                '(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
+
+    timeMatches2 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|'
+                '(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}|'
+                '(?<!after )(\d+\-?\d+?){0}|(?<!after )(\d+\-?\d+?){1}|'
+                '(?<!after )(\d+){0}|(?<!after )(\d+){1}|(?<!after )(\d+\.?\d+?){0}|'
+                '(?<!after )(\d+\.?\d+?){1}|(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
+
+    timeMatchesDur1 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|'
+                'for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|'
+                'for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}|'
+                'after (\d+\-?\d+?){0}|after (\d+\-?\d+?){1}|'
+                'after (\d+){0}|after (\d+){1}|after (\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?){1}|after (\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
+
+    timeMatchesDur2 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|'
+                'for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|'
+                'for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}|'
+                'after (\d+\-?\d+?){0}|after (\d+\-?\d+?){1}|'
+                'after (\d+){0}|after (\d+){1}|after (\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?){1}|after (\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
     
     if timeMatches1.findall(strToNumConvert):
         times = set(timeMatches1.findall(strToNumConvert))

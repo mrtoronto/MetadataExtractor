@@ -91,25 +91,26 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
             `series_pmid_dict` - Dict: Mappings from Series Accession numbers to PMIDs
             `samples_dict` - Dict: {sampleID : data} key-value pairs for all samples in input list.
                 - `data` is a dictionary of the following information:
-                    {'sample_id' : sample_id,
-                        'sample_source' : sample_source,
-                        'sample_title' : sample_title,
-                        'molecule' : molecule,
+                    ***Maybe fill in these slots as fields become useful for specific things.***
+                    {'sample_id' : GSM sample ID,
+                        'sample_source' : ,
+                        'sample_title' : ,
+                        'molecule' : ,
                         'organism' : organism,
-                        'treatment_protocol' : treatment_protocol,
-                        'extract_protocol' : extract_protocol,
-                        'growth_protocol' : growth_protocol,
-                        'description' : sample_description,
-                        'sample_cell_type' : sample_cell_type,
-                        'sample_type' : sample_type,
-                        'sample_sex' : sample_sex,
-                        'sample_tissue' : sample_tissue,
-                        'sample_age' : sample_age,
-                        'sample_indication' : sample_indication,
-                        'sample_genotype' : sample_genotype,
-                        'sample_cell_line' : sample_cell_line,
-                        'expression' : expression,
-                        'cells' : cells
+                        'treatment_protocol' : ,
+                        'extract_protocol' : ,
+                        'growth_protocol' : ,
+                        'description' : ,
+                        'sample_cell_type' : Can be used as a check to filter cell experiments,
+                        'sample_type' : ,
+                        'sample_sex' : ,
+                        'sample_tissue' : ,
+                        'sample_age' : Sometimes has age but needs to be parsed and converted. 
+                        'sample_indication' : ,
+                        'sample_genotype' : ,
+                        'sample_cell_line' : Can be used as a check to filter cell experiments,
+                        'expression' : ,
+                        'cells' : Flag for any positive cell experiment check
                         }
     """
 

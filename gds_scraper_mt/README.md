@@ -29,4 +29,4 @@ Scripts run in the following order:
 
 ### `Individual Scripts`
 
-I'd like to do little writeups about each of the scripts like I did for the PubMed parser but I haven't gotten a chance yet.
+I'd like to do little writeups about each of the scripts like I did for the PubMed parser but I haven't gotten a chance yet. For now, please reference each functions docstring. 

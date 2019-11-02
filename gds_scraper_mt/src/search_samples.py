@@ -1,24 +1,25 @@
-import time
-import os
+import time, os, requests, datetime, csv, re
 import pandas as pd
 import xml.etree.ElementTree as ET
-import requests
-import datetime
-import csv
-import re
-
-"""
-
-Arguments:
-    query       - query phrase to send to the API
-    retmax      - Maximum results to pull. `Samples` in GEO seem to have 3 max (Series, Platform, sample)
-    sort        - Sort order for results. Not relevant for GEO searches
-    api_key     - Supply API key for the API request
-
-
-"""
 
 def get_sample_data(query, retmax=50, sort='relevance', api_key="", DEBUG=0):
+    """
+    This function will query the NCBI e-utils API using the `query` parameter, write the results to a text file and return the file name.
+    Works in two stages:
+    - E-search will send the query to the API and return a QueryKey and WebEnv.
+    - The QueryKey and WebEnv are fed into the GDS E-fetch which will return a text file with Sample,
+
+    There are try: except: loops in each of the request.get sections are these will sometimes fail on big runs. These loops are currently untested as of 11/01/19.
+
+        Args:
+            `query` - query phrase to send to the API
+            `retmax` - Maximum results to pull. `Samples` in GEO seem to have 3 max (Series, Platform, sample)
+            `sort` - Sort order for results. Not relevant for GEO searches
+            `api_key` - Supply API key for the API request
+
+        Returns:
+            `file_name_fetch` - Filename of text file downloaded from e-fetch
+    """
 
     now = datetime.datetime.now()
     if DEBUG >= 1:
@@ -75,5 +76,4 @@ def get_sample_data(query, retmax=50, sort='relevance', api_key="", DEBUG=0):
     with open(file_name_fetch, 'wb') as f:
         f.write(docsab_resp.content)
 
-    ret_list = [file_name_fetch, query_id]
-    return ret_list
+    return file_name_fetch

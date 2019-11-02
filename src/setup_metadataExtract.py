@@ -3,41 +3,13 @@ import numpy as np
 from bs4 import BeautifulSoup
 defaultAgent = {'User-Agent': 'SomeAgent 11.0'}
 
-numberDict = {
-    'zero': 0,
-    'one': 1,
-    'two': 2,
-    'three': 3,
-    'four': 4,
-    'five': 5,
-    'six': 6,
-    'seven': 7,
-    'eight': 8,
-    'nine': 9,
-    'ten': 10,
-    'eleven': 11,
-    'twelve': 12,
-    'thirteen': 13,
-    'fourteen': 14,
-    'fifteen': 15,
-    'sixteen': 16,
-    'seventeen': 17,
-    'eighteen': 18,
-    'nineteen': 19,
-    'twenty': 20,
-    'thirty': 30,
-    'forty': 40,
-    'fifty': 50,
-    'sixty': 60,
-    'seventy': 70,
-    'eighty': 80,
-    'ninety': 90,
-    'hundred': 100,
-    'thousand': 1000,
-    'million': 1000000,
-    'billion': 1000000000,
-    'point': '.'
-}
+numberDict = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11,
+    'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15, 'sixteen': 16,
+    'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20, 'thirty': 30,
+    'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70, 'eighty': 80,
+    'ninety': 90, 'hundred': 100, 'thousand': 1000, 'million': 1000000,
+    'billion': 1000000000, 'point': '.'}
 
 
 def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID', 
@@ -346,20 +318,20 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
     convertCoef = timeConversions(convertFrom = convertFrom, convertTo = convertTo)
 
     if convertFrom == 'day':
-        re1, re2 = '[ \-]day', r'[ \-]d[ \.s\,]'
+        re1, re2 = r'[ \-]day', r'[ \-]d[ \.s\,]'
     if convertFrom == 'week':
-        re1, re2 = '[ \-]week', r'[ \-]wk[ \.s\,]'
+        re1, re2 = r'[ \-]week', r'[ \-]wk[ \.s\,]'
     if convertFrom == 'month':
-        re1, re2 = '[ \-]month', r'[ \-]mo[ \.s\,]'
+        re1, re2 = r'[ \-]month', r'[ \-]mo[ \.s\,]'
     if convertFrom == 'year':
-        re1, re2 = '[ \-]year', r'[ \-]yr[ \.s\,]'
+        re1, re2 = r'[ \-]year', r'[ \-]yr[ \.s\,]'
 
     timeMatches = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}'.format(re1, re2))
     timeMatchesDur = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}'.format(re1, re2))
 
-    times = set(re.findall(timeMatches, strToNumConvert))
-    if re.findall(timeMatchesDur, strToNumConvert):
-        timeDurs = set(re.findall(timeMatchesDur, strToNumConvert)[0])
+    times = set(timeMatches.findall(strToNumConvert))
+    if timeMatchesDur.findall(strToNumConvert):
+        timeDurs = set(timeMatchesDur.findall(strToNumConvert)[0])
     else:
         timeDurs = []
 

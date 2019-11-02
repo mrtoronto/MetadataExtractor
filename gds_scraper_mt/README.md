@@ -1,6 +1,6 @@
 # GEO_scraper
 
-Copying and updating what I wrote for the Pubmed scraper.
+Scraping the Gene Expression Omnibus for sample data and series-associated metadata. Input a list of GSM Sample IDs and returns either a .json and/or a .csv containing data on all samples.
 
 ## Program Goal
 
@@ -29,4 +29,4 @@ Scripts run in the following order:
 
 ### `Individual Scripts`
 
-I'd like to do little writeups about each of the scripts like I did for the PubMed parser but I haven't gotten a chance yet.
+I'd like to do little writeups about each of the scripts like I did for the PubMed parser but I haven't gotten a chance yet. For now, please reference each functions docstring. 

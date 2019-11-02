@@ -1,30 +1,9 @@
-import json
+import json, os, time, sys
 from tqdm import tqdm
-import time
 import pandas as pd
 from src.search_samples import get_sample_data
 from src.geo_parser import geo_txt_parse
-import sys
-import os
 from src.ftp_gzxml_parser import xml_parser
-
-"""
-Parameters:
-    `query_terms`     - Series/list of terms to feed into the API
-    `api_key`         - If you have an API key, call limit goes up to 10/s so you could lower time.sleep(1) to time.sleep(.5) which may be worth it for pulling 10,000+ records at once
-    `DEBUG`           - Adds some DEBUG print options. Being phased out. Soon to deprecate.
-    `multichannel`    - Flag telling the program to skip samples with multichannels found in meta-data.
-    `out_path`        - Output path, does not include extension as the correct extension will be added. Defaults to /output/test
-    `keep_files`      - Option to keep certain files used during the process. Options include 'txt' and 'xml'.
-    `out_types`       - File type of output files. Options include 'json' and 'csv'
-
-Output:
-    - File type is decided by files in `out_type`. By default, create both CSV and JSON.
-    - Files will be named based on `out_path` with the corresponding extension added.
-    - Files have sampleID as key/index and then associated data as values/columns.
-
-
-"""
 
 def scrape_gds(query_terms,
                 api_key,
@@ -33,6 +12,32 @@ def scrape_gds(query_terms,
                 out_path = '/output/test',
                 keep_files = [None],
                 out_types = ['json', 'csv']):
+
+    """
+    Function to take in an iterator of sample IDs and output either a .json or .csv file of the sample, series and platform data and the metadata associated with the sample's series.
+    In `src.search_samples.get_sample_data()`, the NCBI API is used to download text files of samples using the GSM ID. This will return the filename of the downloaded data.
+    The list of filenames and associated sampleIDs is fed to `src.geo_parser.geo_txt_parse()` which will extract the sample's sample, series and platform data. This function returns a dictionary with GSM ID keys and data dictionary values.
+    The series FTP links are fed individual to `src.ftp_gzxml_parser.xml_parser()` to gather metadata on samples in each series. This function returns a dictionary of samples from that series.
+    The metadata dictionary from `src.ftp_gzxml_parser.xml_parser()` is used to update the value-dictionaries in the sample data dictionary.
+    The data is returned in the format specified by `out_types` at the location specified in `out_path`.
+
+        Args:
+            `query_terms` - Series/list: Terms to feed into the API
+            `api_key` - Str: If you have an API key, call limit goes up to 10/s so you could lower time.sleep(1) to time.sleep(.5) which may be worth it for pulling 10,000+ records at once
+            `DEBUG` - Int: Adds some DEBUG print options. Being phased out. Soon to deprecate.
+            `multichannel` - Boolean: Flag telling the program to skip samples with multichannels found in meta-data.
+            `out_path` - Str: Output path, does not include extension as the correct extension will be added. Defaults to /output/test
+            `keep_files` - List: Flags to keep certain files used during the process. Options include 'txt' and 'xml'.
+            `out_types` - List: Output file type. Options include 'json' and 'csv'
+
+        Returns:
+            `text_file_dict` - Dict: Contains {sampleID : data} key-value pairs for all the requested samples.
+
+            This function will also create output files.
+                - File type is decided by files in `out_type`. By default, create both CSV and JSON.
+                - Files will be named based on `out_path` with the corresponding extension added.
+                - Files have sampleID as key/index and then associated data as values/columns.
+    """
 
     for file_type in keep_files:
         if (file_type != 'txt') and (file_type != 'xml'):
@@ -46,8 +51,8 @@ def scrape_gds(query_terms,
     parse_list=[]
     print('Creating sample .txt files')
     for query_term in tqdm(query_terms, total=len(query_terms)):
-        search_ids_list = get_sample_data(query=query_term, api_key=api_key)
-        parse_list.append(search_ids_list)
+        search_ids_file = get_sample_data(query=query_term, api_key=api_key)
+        parse_list.append([search_ids_file, query_term])
         time.sleep(1)
 
     """

@@ -1,27 +1,39 @@
-import itertools
-import os
-import re
+import itertools, os, re, requests, datetime
 import pandas as pd
 import xml.etree.ElementTree as ET
-import requests
-import datetime
-
-"""
-
-https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=GSM3855772&usehistory=y&retmax=20&sort=relevance
-
-https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=gds&query_key=1&WebEnv=NCID_1_43256172_130.14.18.97_9001_1571760482_60187628_0MetA0_S_MegaStore&rettype=abstract&retmode=xml&retmax=20
-
-Parameters:
-    list_of_ids_querys      - List of two element lists. Elements created by `get_sample_data`
-        - [location of text file, query_term] ; [GSM4667_19-10-31-1954_fetch.txt, GSM4667]
-
-
-"""
 
 def geo_txt_parse(loc_query_list, keep_files = [None]):
+    """
+    This function will take in a list of 2-element lists. Each internal list will contain a filename and a sampleID.
 
-    now = datetime.datetime.now()
+    Looping through this top level list, each file will be read and data will be parsed from the individual sections of the file.
+
+    Key data on the sample, series and platform in these files includes a summary-esque block of text for each, a series and platform FTP download link and series and platform accession numbers (GSE and GPL respectively).
+
+    To manually check the input file, submit this link, copy the WebEnv string, and paste it into the lower URL.
+    https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term=GSM3855772&usehistory=y&retmax=20&sort=relevance
+    https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=gds&query_key=1&WebEnv=NCID_1_125842368_130.14.18.97_9001_1572652184_589518123_0MetA0_S_MegaStore&rettype=abstract&retmode=xml&retmax=20
+
+        Args:
+            `loc_query_list` - List: List of Two element lists. Elements created by `src.search_samples.get_sample_data`
+                - [location of text file, query_term]
+                - [GSM4667_19-10-31-1954_fetch.txt, GSM4667]
+            `keep_files` - List: File types to keep during a full run. If 'txt' is in `keep_files` then the txt file won't be deleted.
+
+        Returns:
+            `rows_dict` - Dict: {sampleID : data} key-value pairs for all samples in input list.
+                - `data` is a dictionary of the following information:
+                    {'sample_id' : query_name,
+                        'series' : series,
+                        'series_accession' : series_accession,
+                        'series_ftp' : series_ftp,
+                        'platform' : platform,
+                        'platform_accession' : platform_accession,
+                        'platform_ftp' : platform_ftp,
+                        'sample' : sample,
+                        'contents' : contents}
+    """
+    
     row_list = []
     rows_dict = {}
 

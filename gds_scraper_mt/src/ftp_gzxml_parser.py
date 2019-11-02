@@ -1,24 +1,25 @@
-import numpy as np
-import tarfile
-import os
-import urllib.request
-import urllib
-import gzip
 from lxml import etree, objectify
 import xml.etree.ElementTree as ET
-import re
 import pandas as pd
-
-### Digging through some of the layers of the XML
-### Look for <Sample *> section
+import numpy as np
+import tarfile, os, urllib, gzip, re
 
 def tar_gz_extracter(url):
+    """
+    This function will take a FTP URL and download then extract the tar-gzipped file (.tgz).
+    The first try: except: loop will catch the rare `ContentTooShortError`. I believe this appears in very big runs but its so infrequent, I haven't been able to fully diagnosis it.
+    The second try: except: loop will trigger when there isn't an .xml file in the .tgz file. Currently it prints the files as I was debugging but this probably isn't necessary. Would be good to mark it somehow..?
+
+        Args:
+            `url` - Str: Series FTP URL leading to a .tgz file
+
+        Returns:
+            `xml_name` - Str: Name of .xml file that was extracted.
+    """
 
     try:
         f_url = urllib.request.urlretrieve(url, filename=None)[0]
     except urllib.error.ContentTooShortError as e:
-        ### This happens super rarely but sometimes the URL is too short..?
-        ### Would be good to formally log these URLs and see what's up
         print(f'URL too short: {url}')
         return None
     base_name = os.path.basename(url)
@@ -34,7 +35,6 @@ def tar_gz_extracter(url):
         return None
     tar.extract(xml_name, path = f'output/xml/')
 
-    #f_url.close()
     tar.close()
 
     return xml_name
@@ -44,6 +44,21 @@ def geoSampleCellCheck(sample_dict,
                     parseLocations = ['treatment_protocol', 'growth_protocol'],
                     checkLocations = ['sample_cell_line', 'sample_cell_type'],
                     cellDetectKWs = ['DMEM', 'FBS', 'bovine serum', 'passage']):
+
+    """
+    Function used to create the 'cells' field in the output dictinary.
+    Function will check locations in `parseLocations` using a keyword match. If it finds any keywords listed in `cellDetectKWs` argument then the functin returns True.
+    The function will also return True if a field in `checkLocations` is not blank. These fields are characteristic fields that are left blank in non-cell experiments.
+
+        Args:
+            `sample_dict` - Dict: Contains {sampleID : data} key-value pairs for each element in the selected sample.
+            `parseLocations` - List: Locations to use keywords to parse whether there are cells or not
+            `checkLocations` - List: Location to check for any content at all. No cells means no content in these places.
+            `cellDetectKWs` - List:
+
+        Returns:
+            True/False depending on the input data.
+    """
     for parseLocation in parseLocations:
         for cellDetectKW in cellDetectKWs:
             if cellDetectKW in sample_dict[parseLocation]:
@@ -55,6 +70,51 @@ def geoSampleCellCheck(sample_dict,
     return False
 
 def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, keep_files = [None]):
+    """
+    This function will take in the URL for a Series FTP .tgz file, download the file, extract the .xml file from the compressed directory and then parse the .xml.
+
+    Try: except lxml.etree.XMLSyntaxError as e: section is to prevent illegal XML characters from breaking the script. Ideally, we'd replace all illegal characters before parsing but I couldn't find good code to do that.
+
+    First the ./Series tags are looped through and the corresponding pubmed ID is taken from each series.
+
+    Then the ./Samples tags are looped through and all relevant information is captured for each sample.
+
+    If multichannel == False and the parser finds more than 1 channel-count tag within a sample, it'll append an essentially empty data dict knowing it'll be filtered later.
+        Args:
+            `url` - Str: Series FTP URL leading to a .tgz file
+            `parse_platforms` - Bool: If set to its default value, False, a platform URL will be rejected instead of parsed poorly.
+            `DEBUG` - Int: Sets depth of debug messages. Mostly deprecated.
+            `multichannel` - Bool: If set to False, multichannel files will be filtered out of the final result.
+            `keep_files` - List: File types to keep during a full run. If 'xml' is in `keep_files` then the xml file won't be deleted.
+
+        Returns:
+            `series_pmid_dict` - Dict: Mappings from Series Accession numbers to PMIDs
+            `samples_dict` - Dict: {sampleID : data} key-value pairs for all samples in input list.
+                - `data` is a dictionary of the following information:
+                    ***Maybe fill in these slots as fields become useful for specific things.***
+                    {'sample_id' : GSM sample ID,
+                        'sample_source' : ,
+                        'sample_title' : ,
+                        'molecule' : ,
+                        'organism' : organism,
+                        'treatment_protocol' : ,
+                        'extract_protocol' : ,
+                        'growth_protocol' : ,
+                        'description' : ,
+                        'sample_cell_type' : Can be used as a check to filter cell experiments,
+                        'sample_type' : ,
+                        'sample_sex' : ,
+                        'sample_tissue' : ,
+                        'sample_age' : Sometimes has age but needs to be parsed and converted. 
+                        'sample_indication' : ,
+                        'sample_genotype' : ,
+                        'sample_cell_line' : Can be used as a check to filter cell experiments,
+                        'expression' : ,
+                        'cells' : Flag for any positive cell experiment check
+                        }
+    """
+
+
     n=1000
     if DEBUG >= 2:
         print(f'Parsing: {url}')
@@ -71,7 +131,7 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
     parser = etree.XMLParser(recover=True)
     try:
         tree_ab = ET.parse(f'output/xml/{xml_filename}', parser=parser)
-    except lxml.etree.XMLSyntaxError as e:
+    except etree.XMLSyntaxError as e:
         print(e)
         return {}, {}
     root = tree_ab.getroot()
@@ -79,9 +139,9 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
         os.unlink('output/xml/' + xml_filename)
 
     #### I stole this code from the internet but it will replace the prefix that gets added
-    #### There's probably a better way but doing this let me get to the data"""
+    #### There's probably a better way to do this
     for elem in root.getiterator():
-        if not hasattr(elem.tag, 'find'): continue  # (1)
+        if not hasattr(elem.tag, 'find'): continue
         i = elem.tag.find('}')
         if i >= 0:
             elem.tag = elem.tag[i+1:]
@@ -234,12 +294,3 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
         sample_row_list.append(sample_dict)
 
     return series_pmid_dict, samples_dict
-
-"""if __name__ == 'main':
-    url = 'ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE133nnn/GSE133304/miniml/GSE133304_family.xml.tgz'
-
-    column_list = ['sample_id', 'sample_source', 'sample_title', 'molecule', 'treatment_protocol', 'extract_protocol', 'growth_protocol', 'characteristic_list']
-
-    fetch_df = pd.DataFrame(xml_parser(url), columns = column_list)
-
-    print(fetch_df.head())"""

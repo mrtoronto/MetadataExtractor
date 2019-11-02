@@ -1,6 +1,6 @@
 # GEO_scraper
 
-Copying and updating what I wrote for the Pubmed scraper.
+Scraping the Gene Expression Omnibus for sample data and series-associated metadata. Input a list of GSM Sample IDs and returns either a .json and/or a .csv containing data on all samples.
 
 ## Program Goal
 

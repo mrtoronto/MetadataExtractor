@@ -13,16 +13,16 @@ numberDict = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
 
 timeReDict = {'day': {'timeMatch1': r'[ \-]day', 'timeMatch2': r'[ \-]d[ \.s\,]', 
                         'timeMatch3': r'[ \-]d[ \.s\,]?$', 'timeSub1': r' ?days?', 
-                        'timeSub2': r' ?ds?'},
+                        'timeSub2': r' ?ds?', 'flagRange': 84},
             'week': {'timeMatch1': r'[ \-]week', 'timeMatch2': r'[ \-]wk[ \.s\,]',
                         'timeMatch3': r'[ \-]wk[ \.s\,]?$', 'timeSub1': r' ?weeks?', 
-                        'timeSub2': r' ?wks?'},
+                        'timeSub2': r' ?wks?', 'flagRange': 12},
             'month': {'timeMatch1': r'[ \-]month', 'timeMatch2': r'[ \-]mo[ \.s\,]', 
                         'timeMatch3': r'[ \-]mo[ \.s\,]?$', 'timeSub1': r' ?months?', 
-                        'timeSub2': r' ?mos?'},
+                        'timeSub2': r' ?mos?', 'flagRange': 3},
             'year': {'timeMatch1': r'[ \-]year', 'timeMatch2': r'[ \-]yr[ \.s\,]', 
                         'timeMatch3': r'[ \-]yr[ \.s\,]?$', 'timeSub1': r' ?years?', 
-                        'timeSub2': r' ?yrs?'}}
+                        'timeSub2': r' ?yrs?', 'flagRange': 0.25}}
 
 def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID', 
     'Study', 'Organism', 'Sample type', 'Extracted molecule', 'Age', 'Gender', 
@@ -255,23 +255,26 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
 
 
 def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week', 
-    'month', 'year'], nullReturn = 'n/a'):
+    'month', 'year'], nullReturn = 'n/a', flagRange = True):
     """ Convert text into a numerical time. Some general rules: Check will be 
         made for a range of numbers, e.g. 12-13, and averaged. If no match, then 
-        check for single numbers, e.g. 12. However, if "for" is in front of this 
-        number, then it needs to be added to other numeric matches (e.g. "12 
-        weeks old for 2 weeks" == 14). This syntax is ideal, however one could 
-        possibly check that the 12 != 2, with the expectation that the
-        likelihood is low that it would read "7 weeks old for 7 weeks".
-        These checks can be added in the future. Currently only able to process
+        check for single numbers, e.g. 12. However, if "for|after" is in front of 
+        this number, then it will be added to other numeric matches (e.g. "12 
+        weeks old for 2 weeks" == 14). Currently only able to process
         days, weeks, months, and years (shorter time units are typically reserved
-        for exposures, such as a drug, rather than the animal's age). 
+        for exposures, such as a drug, rather than the animal's age). The regexes
+        are read in from a built-in internal dictionary (timeReDict). Additionally,
+        extremely wide time ranges can be flagged, as some experiments may only
+        sacrifice mice as they reach a certain physiological state, which could
+        vary months, and thus would be uninformative to extract a "true" age.
 
         Args:
             text: Str - text to be parsed
             convertTo: Str - Converted time units ['day', 'week', 'month', 'year']
             nullReturn: Str - Return if no numbers found
             checkConverts: List - Time units to convert to convertTo unit
+            flagRange: Bool - Flag a unexpectedly wide range with a printout.
+                The range will be read on the built-in timeReDict dictionary.
         
         Return:
             nums - Float - Converted number in the text (to weeks)
@@ -326,8 +329,25 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
             convertFrom = convertFrom, convertTo = convertTo)
 
     if len(nums) > 0:
+        
+        if flagRange is True:
+            nums.sort()
+            for i, j in enumerate(nums):
+                if i+1 != len(nums):
+                    if (nums[i+1] - nums[i]) > timeReDict[convertTo]['flagRange']:
+                        print('Warning, very wide range of ages found ({0} to '
+                            '{1} {2})'.format(nums[i], nums[i+1], convertTo))
+
         numSum = np.nanmean(nums)
         if len(durs) > 0:
+            if flagRange is True:
+                durs.sort()
+                for i, j in enumerate(durs):
+                    if i+1 != len(durs):
+                        if (durs[i+1] - durs[i]) > timeReDict[convertTo]['flagRange']:
+                            print('Warning, very wide range of durations found ({0} to '
+                                '{1} {2})'.format(durs[i], durs[i+1], convertTo))
+                                
             numSum += np.nansum(durs)
 
         if numSum == 0:

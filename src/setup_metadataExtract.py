@@ -11,6 +11,18 @@ numberDict = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
     'ninety': 90, 'hundred': 100, 'thousand': 1000, 'million': 1000000,
     'billion': 1000000000, 'point': '.'}
 
+timeReDict = {'day': {'timeMatch1': r'[ \-]day', 'timeMatch2': r'[ \-]d[ \.s\,]', 
+                        'timeMatch3': r'[ \-]d[ \.s\,]?$', 'timeSub1': r' ?days?', 
+                        'timeSub2': r' ?ds?'},
+            'week': {'timeMatch1': r'[ \-]week', 'timeMatch2': r'[ \-]wk[ \.s\,]',
+                        'timeMatch3': r'[ \-]wk[ \.s\,]?$', 'timeSub1': r' ?weeks?', 
+                        'timeSub2': r' ?wks?'},
+            'month': {'timeMatch1': r'[ \-]month', 'timeMatch2': r'[ \-]mo[ \.s\,]', 
+                        'timeMatch3': r'[ \-]mo[ \.s\,]?$', 'timeSub1': r' ?months?', 
+                        'timeSub2': r' ?mos?'},
+            'year': {'timeMatch1': r'[ \-]year', 'timeMatch2': r'[ \-]yr[ \.s\,]', 
+                        'timeMatch3': r'[ \-]yr[ \.s\,]?$', 'timeSub1': r' ?years?', 
+                        'timeSub2': r' ?yrs?'}}
 
 def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID', 
     'Study', 'Organism', 'Sample type', 'Extracted molecule', 'Age', 'Gender', 
@@ -278,17 +290,38 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
     
     text = re.sub('(\D)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     text = re.sub('(\d+)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
-    splitWords = text.lower().strip().split()
-    strToNumConvert = []
-    for word in splitWords:
-        if word in numberDict:
-            strToNumConvert.append(str(numberDict[word]))
-        else:
-            strToNumConvert.append(word)
-    strToNumConvert = ' '.join(strToNumConvert)
-
+    
     nums = 0
     for convertFrom in checkConverts:
+        
+        re1, re2 = timeReDict[convertFrom]['timeSub1'], timeReDict[convertFrom]['timeSub2']
+        timeSub = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{0})|(\d+\.?\d?){1}(\-\d+\.?\d?{1})'.format(re1, re2))
+        timeSpacer1 = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{1})'.format(re1, re2))
+        timeSpacer2 = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{1})'.format(re2, re1))
+        timeSpacer3 = re.compile('(\d+\.?\d?)({0})'.format(re1))
+        timeSpacer4 = re.compile('(\d+\.?\d?)({0})'.format(re2))
+
+        if timeSub.findall(text):
+            text = ''.join([x for x in timeSub.findall(text)[0]])
+        
+        if timeSpacer1.findall(text):
+            text = timeSpacer1.sub('\\1\\2', text)    
+        elif timeSpacer2.findall(text):
+            text = timeSpacer2.sub('\\1\\2', text)    
+        elif timeSpacer3.findall(text):
+            text = timeSpacer3.sub('\\1 \\2', text)    
+        elif timeSpacer4.findall(text):
+            text = timeSpacer4.sub('\\1 \\2', text)    
+        
+        splitWords = text.lower().strip().split()
+        strToNumConvert = []
+        for word in splitWords:
+            if word in numberDict:
+                strToNumConvert.append(str(numberDict[word]))
+            else:
+                strToNumConvert.append(word)
+        strToNumConvert = ' '.join(strToNumConvert)
+        
         nums = addAgeStrings(nums, strToNumConvert = strToNumConvert, 
             convertFrom = convertFrom, convertTo = convertTo)
 
@@ -317,24 +350,29 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
     """
     convertCoef = timeConversions(convertFrom = convertFrom, convertTo = convertTo)
 
-    if convertFrom == 'day':
-        re1, re2 = r'[ \-]day', r'[ \-]d[ \.s\,]'
-    if convertFrom == 'week':
-        re1, re2 = r'[ \-]week', r'[ \-]wk[ \.s\,]'
-    if convertFrom == 'month':
-        re1, re2 = r'[ \-]month', r'[ \-]mo[ \.s\,]'
-    if convertFrom == 'year':
-        re1, re2 = r'[ \-]year', r'[ \-]yr[ \.s\,]'
+    re1 = timeReDict[convertFrom]['timeMatch1']
+    re2 = timeReDict[convertFrom]['timeMatch2']
+    re3 = timeReDict[convertFrom]['timeMatch3']
 
-    timeMatches = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}'.format(re1, re2))
-    timeMatchesDur = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}'.format(re1, re2))
+    timeMatches1 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
+    timeMatches2 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
+    timeMatchesDur1 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
+    timeMatchesDur2 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
+    
+    if timeMatches1.findall(strToNumConvert):
+        times = set(timeMatches1.findall(strToNumConvert))
+    elif timeMatches2.findall(strToNumConvert):
+        times = set(timeMatches2.findall(strToNumConvert)) 
+    else:
+        times = [] 
 
-    times = set(timeMatches.findall(strToNumConvert))
-    if timeMatchesDur.findall(strToNumConvert):
-        timeDurs = set(timeMatchesDur.findall(strToNumConvert)[0])
+    if timeMatchesDur1.findall(strToNumConvert):
+        timeDurs = set(timeMatchesDur1.findall(strToNumConvert)[0])
+    elif timeMatchesDur2.findall(strToNumConvert):
+        timeDurs = set(timeMatchesDur2.findall(strToNumConvert)[0])   
     else:
         timeDurs = []
-
+    
     for match in times:
         for x in match:
             if len(x.split('-')) == 2:

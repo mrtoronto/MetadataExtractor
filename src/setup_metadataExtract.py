@@ -291,7 +291,8 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
     text = re.sub('(\D)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     text = re.sub('(\d+)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     
-    nums = 0
+    #nums = 0
+    nums, durs = [], []
     for convertFrom in checkConverts:
         
         re1, re2 = timeReDict[convertFrom]['timeSub1'], timeReDict[convertFrom]['timeSub2']
@@ -321,17 +322,26 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
             else:
                 strToNumConvert.append(word)
         strToNumConvert = ' '.join(strToNumConvert)
-        
-        nums = addAgeStrings(nums, strToNumConvert = strToNumConvert, 
+       
+        nums, durs = enumAgeStrings(nums, durs, strToNumConvert = strToNumConvert, 
             convertFrom = convertFrom, convertTo = convertTo)
 
-    if nums == 0:
+    if len(nums) > 0:
+        numSum = np.nanmean(nums)
+        if len(durs) > 0:
+            numSum += np.nansum(durs)
+
+        if numSum == 0:
+            return nullReturn
+        else:
+            return numSum
+
+    elif len(nums) == 0:
         return nullReturn
-    else:
-        return nums
 
 
-def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'):
+def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day', 
+    convertTo = 'week'):
     """ Find instances of time, and convert to a quantitative value (perhaps of 
         another time unit). Add time matches to counter, converted. Checks made 
         for durations, e.g. "for 2 weeks", and if found, these are added to nums.
@@ -365,7 +375,7 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
         times = set(timeMatches2.findall(strToNumConvert)) 
     else:
         times = [] 
-
+    
     if timeMatchesDur1.findall(strToNumConvert):
         timeDurs = set(timeMatchesDur1.findall(strToNumConvert)[0])
     elif timeMatchesDur2.findall(strToNumConvert):
@@ -377,7 +387,7 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
         for x in match:
             if len(x.split('-')) == 2:
                 try:
-                    nums += np.mean([float(n) for n in x.split('-') if float(n) not in timeDurs])*convertCoef
+                    nums.append(np.mean([float(n) for n in x.split('-') if float(n) not in timeDurs])*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
@@ -385,7 +395,7 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
             else:
                 try:
                     if x not in timeDurs:
-                        nums += float(x)*convertCoef
+                        nums.append(float(x)*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
@@ -395,20 +405,20 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
         for x in match:
             if len(x.split('-')) == 2:
                 try:
-                    nums += np.mean([float(n) for n in x.split('-')])*convertCoef
+                    durs.append(np.mean([float(n) for n in x.split('-')])*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
                     print(str(err))
             else:
                 try:
-                    nums += int(x)*convertCoef
+                    durs.append(float(x)*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
                     print(str(err))
 
-    return nums
+    return nums, durs
 
 
 def timeConversions(convertFrom, convertTo):

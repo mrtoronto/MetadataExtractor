@@ -9,7 +9,7 @@ gsmURL = 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc='
 
 class TestDataProcess(unittest.TestCase):
 
-    def test_addAgeStrings(self):
+    def test_enumAgeStrings(self):
         """ Check: Convert numbers, use hand-written test cases. """
         
         case1 = '10 weeks old'
@@ -18,32 +18,70 @@ class TestDataProcess(unittest.TestCase):
         case4 = '6-8 days for 7 days'
         nullCase = '6-10 eons for 7 iotas'
 
-        self.assertEqual(10, util.addAgeStrings(0, case1, convertFrom = 'week', 
-            convertTo = 'week'))
-        self.assertEqual(15, util.addAgeStrings(0, case2, convertFrom = 'week', 
-            convertTo = 'week'))
-        self.assertEqual(8, util.addAgeStrings(0, case3, convertFrom = 'week', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, case4, convertFrom = 'week', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, case1, convertFrom = 'day', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, case2, convertFrom = 'day', 
-            convertTo = 'week'))
-        self.assertEqual(1, util.addAgeStrings(0, case3, convertFrom = 'day', 
-            convertTo = 'week'))
-        self.assertEqual(14, util.addAgeStrings(0, case4, convertFrom = 'day', 
-            convertTo = 'day'))
-        self.assertEqual(0, util.addAgeStrings(0, case1, convertFrom = 'month', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, case2, convertFrom = 'month', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, case3, convertFrom = 'month', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, case4, convertFrom = 'month', 
-            convertTo = 'week'))
-        self.assertEqual(0, util.addAgeStrings(0, nullCase, convertFrom = 'week', 
-            convertTo = 'week'))
+        val, durs = util.enumAgeStrings([], [], case1, convertFrom = 'week', 
+            convertTo = 'week')
+        self.assertEqual(10, val[0])
+        self.assertEqual([], durs)
+
+        val, durs = util.enumAgeStrings([], [], case2, convertFrom = 'week', 
+            convertTo = 'week')
+        self.assertEqual(10, val[0])
+        self.assertEqual(5, durs[0])
+
+        val, durs = util.enumAgeStrings([], [], case3, convertFrom = 'week', 
+            convertTo = 'week')
+        self.assertEqual(8, val[0])
+        self.assertEqual([], durs)
+        
+        val, durs = util.enumAgeStrings([], [], case4, convertFrom = 'week', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+
+        val, durs = util.enumAgeStrings([], [], case1, convertFrom = 'day', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+        
+        val, durs = util.enumAgeStrings([], [], case2, convertFrom = 'day', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+        
+        val, durs = util.enumAgeStrings([], [], case3, convertFrom = 'day', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual(1, durs[0])
+
+        val, durs = util.enumAgeStrings([], [], case4, convertFrom = 'day', 
+            convertTo = 'week')
+        self.assertEqual(1, val[0])
+        self.assertEqual(1, durs[0])
+        
+        val, durs = util.enumAgeStrings([], [], case1, convertFrom = 'month', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+
+        val, durs = util.enumAgeStrings([], [], case2, convertFrom = 'month', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+
+        val, durs = util.enumAgeStrings([], [], case3, convertFrom = 'month', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+
+        val, durs = util.enumAgeStrings([], [], case4, convertFrom = 'month', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
+
+        val, durs = util.enumAgeStrings([], [], nullCase, convertFrom = 'week', 
+            convertTo = 'week')
+        self.assertEqual([], val)
+        self.assertEqual([], durs)
 
 
     def test_numericTimeConvert(self):
@@ -59,6 +97,7 @@ class TestDataProcess(unittest.TestCase):
         case5 = '4day-10mos for 1 week'
         case6a = '6.5-10.5 weeks'
         case6b = '6.5-10weeks'
+        case7 = '20wks-1.5yrs'
         nullCase1 = '6-10 eons for 7 iotas'
         
         self.assertEqual(10, util.numericTimeConvert(case1a, convertTo = 'week'))
@@ -73,9 +112,11 @@ class TestDataProcess(unittest.TestCase):
         self.assertEqual(70, util.numericTimeConvert(case1c, convertTo = 'Days'))
         self.assertEqual('n/a', util.numericTimeConvert(case1c, convertTo = 'Days', 
             checkConverts = ['day', 'month']))
-        self.assertEqual(41, int(util.numericTimeConvert(case5)))
+        
+        self.assertEqual(21, int(util.numericTimeConvert(case5)))
         self.assertEqual(8.5, util.numericTimeConvert(case6a))
         self.assertEqual(8.25, util.numericTimeConvert(case6b))
+        self.assertEqual(49, util.numericTimeConvert(case7))
         
         with self.assertRaises(ValueError):
             util.numericTimeConvert(case1a, convertTo = 'hrs')
@@ -100,7 +141,7 @@ class TestDataProcess(unittest.TestCase):
                        '4days-10days', '4days-10 days', '4d-10days']:
             self.assertEqual(1, util.numericTimeConvert(text, convertTo = 'week'))
         
-        
+
     def test_geoAgeExtract(self):
         """ Check: Proper age on hand-picked test samples. Failed pickups on 
             alternative parse IDs. Check age extraction from GSE if age cannot
@@ -116,7 +157,7 @@ class TestDataProcess(unittest.TestCase):
         samp4Text = requests.get(gsmURL + samp4).text
         samp5Text = requests.get(gsmURL + samp5).text
         samp6Text = requests.get(gsmURL + samp6).text
-        """
+        
         v1, s1 = util.geoAgeExtract(samp1Text)
         self.assertAlmostEqual(4.28571428, v1)
         self.assertEqual('Sample', s1)
@@ -142,7 +183,7 @@ class TestDataProcess(unittest.TestCase):
         self.assertEqual('Sample', s6a)
         
         v6b, s6b = util.geoAgeExtract(samp6Text, tryAgeStudy = True)
-        self.assertEqual(13.5, v6b)
+        self.assertEqual(6.75, v6b)
         self.assertEqual('Study', s6b)
 
         v1, s1 = util.geoAgeExtract(samp1Text, parseAgeIDs = ['Characteristics'])
@@ -161,7 +202,7 @@ class TestDataProcess(unittest.TestCase):
         v5b, s5b = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
             tryAgeStudy = True)
         self.assertEqual(16, v5b)
-        """
+        
 
 if __name__ == '__main__':
 

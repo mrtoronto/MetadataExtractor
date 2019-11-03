@@ -3,42 +3,26 @@ import numpy as np
 from bs4 import BeautifulSoup
 defaultAgent = {'User-Agent': 'SomeAgent 11.0'}
 
-numberDict = {
-    'zero': 0,
-    'one': 1,
-    'two': 2,
-    'three': 3,
-    'four': 4,
-    'five': 5,
-    'six': 6,
-    'seven': 7,
-    'eight': 8,
-    'nine': 9,
-    'ten': 10,
-    'eleven': 11,
-    'twelve': 12,
-    'thirteen': 13,
-    'fourteen': 14,
-    'fifteen': 15,
-    'sixteen': 16,
-    'seventeen': 17,
-    'eighteen': 18,
-    'nineteen': 19,
-    'twenty': 20,
-    'thirty': 30,
-    'forty': 40,
-    'fifty': 50,
-    'sixty': 60,
-    'seventy': 70,
-    'eighty': 80,
-    'ninety': 90,
-    'hundred': 100,
-    'thousand': 1000,
-    'million': 1000000,
-    'billion': 1000000000,
-    'point': '.'
-}
+numberDict = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11,
+    'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15, 'sixteen': 16,
+    'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20, 'thirty': 30,
+    'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70, 'eighty': 80,
+    'ninety': 90, 'hundred': 100, 'thousand': 1000, 'million': 1000000,
+    'billion': 1000000000, 'point': '.'}
 
+timeReDict = {'day': {'timeMatch1': r'[ \-]day', 'timeMatch2': r'[ \-]d[ \.s\,]', 
+                        'timeMatch3': r'[ \-]d[ \.s\,]?$', 'timeSub1': r' ?days?', 
+                        'timeSub2': r' ?ds?', 'flagRange': 84},
+            'week': {'timeMatch1': r'[ \-]week', 'timeMatch2': r'[ \-]wk[ \.s\,]',
+                        'timeMatch3': r'[ \-]wk[ \.s\,]?$', 'timeSub1': r' ?weeks?', 
+                        'timeSub2': r' ?wks?', 'flagRange': 12},
+            'month': {'timeMatch1': r'[ \-]month', 'timeMatch2': r'[ \-]mo[ \.s\,]', 
+                        'timeMatch3': r'[ \-]mo[ \.s\,]?$', 'timeSub1': r' ?months?', 
+                        'timeSub2': r' ?mos?', 'flagRange': 3},
+            'year': {'timeMatch1': r'[ \-]year', 'timeMatch2': r'[ \-]yr[ \.s\,]', 
+                        'timeMatch3': r'[ \-]yr[ \.s\,]?$', 'timeSub1': r' ?years?', 
+                        'timeSub2': r' ?yrs?', 'flagRange': 0.25}}
 
 def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID', 
     'Study', 'Organism', 'Sample type', 'Extracted molecule', 'Age', 'Gender', 
@@ -49,7 +33,9 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     'Growth protocol'], convertAgeTo = 'week', checkAgeConverts = ['day', 'week',
     'month', 'year'], nullReturn = 'n/a', tryAgeStudy = True,
     parseStudyIDs = ['Summary', 'Overall design'], tryAgePMID = True,
-    pmidSection = 'methods'):
+    pmidSection = 'methods', flagRange = True, flagSort = True,
+    sortDetectProt = ['CD4+', 'T cells', 'sort-purified', 'cell-sort', 'FACS',
+    'cell sorting', 'flow cytometry']):
     """ Extract metadata from a GEO GSM ID. Options to keep detected
         in vitro samples, and to exclude multichannel expression assays (e.g. 
         microarrays). Not all structured entries need to be parsed, however
@@ -84,6 +70,8 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
                 extracted some GSE nor GSM
             pmidSection: Str - Full-text paper section in which to expect an age
                 value. Default to 'methods'
+            flagSort: Bool - Flag potential cell-sort protocols
+            sortDetect: List - List of cell-sort tags, use geoSampleCellCheck()
             
         Returns:
             meta - Dict: Items in extracts for sampleID
@@ -119,6 +107,14 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     moleExtract = re.findall(r'Extracted molecule \n (.*) \n', cleanText)[0]
 
     meta = dict()
+    meta['Flags'] = dict()
+    if flagSort is True:
+        meta['Flags']['Sort'] = geoSampleCellCheck(urlText = cleanText, 
+            cellDetectChar = 'null', cellDetectProt = sortDetectProt, 
+            protocolEntries = parseCellIDs)
+    else:
+        meta['Flags']['Sort'] = False
+
     for extract in extracts:
         if extract == 'ID':
             meta[extract] = sampleID
@@ -132,12 +128,14 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
         elif extract == 'Organism':
             meta[extract] = GEOOrganism
         elif extract == 'Age':
-            meta[extract], ageSource = geoAgeExtract(urlText = urlGetText, 
+            meta[extract], ageSource, flagged = geoAgeExtract(urlText = urlGetText, 
                     parseAgeIDs = parseAgeIDs, convertTo = convertAgeTo, 
                     nullReturn = nullReturn, checkConverts = checkAgeConverts,
                     tryAgeStudy = tryAgeStudy, parseStudyIDs = parseStudyIDs,
-                    tryAgePMID = tryAgePMID, pmidSection = pmidSection)
+                    tryAgePMID = tryAgePMID, pmidSection = pmidSection,
+                    flagRange = flagRange)
             meta['Age Source'] = ageSource
+            meta['Flags']['Age'] = flagged
         elif extract == 'Gender':
             meta[extract] = geoGenderExtract(urlGetText)
         elif extract == 'Expression':
@@ -194,7 +192,7 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
      'Description', 'Treatment protocol', 'Growth protocol'], convertTo = 'week',
     nullReturn = 'n/a', checkConverts = ['day', 'week', 'month', 'year'],
     tryAgeStudy = True, parseStudyIDs = ['Summary', 'Overall design'],
-    tryAgePMID = True, pmidSection = 'methods'):
+    tryAgePMID = True, pmidSection = 'methods', flagRange = True):
     """ Extract age from GEO sample (GSM) text. Either/or the 'Characteristics'
         or protocols/descriptions entries. See numericTimeConvert() docstring for
         more detail on the approach. Return null on cell detect. If the same age
@@ -220,11 +218,14 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
         Return:
             age: Float - Estimated age
             source: Str - Source of age scrape('Sample', 'Study', 'Text')
+            flagged: Bool - Flag for wide age range, if they are to even be 
+                checked, a la flagRange arg
     """
+    flagged = False
     if geoSampleCellCheck(urlText) is True and checkCell == True:
-        return nullReturn, nullReturn
+        return nullReturn, nullReturn, flagged
 
-    ageCounter, charAge = [], nullReturn
+    ageCounter, charAge, flags = [], nullReturn, []
     
     cleanText = re.sub(r'<.*?>|\\n', ' ', urlText)
     for i in parseAgeIDs:
@@ -233,69 +234,87 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
             if len(matches) > 1:
                 if i == 'Characteristics' and 'age:' in matches[1]:
                     ageMatch = re.findall('\<br\>age\:(.*)\<br\>', urlText)[0]
-                    charAge = numericTimeConvert(text = ageMatch, 
-                        convertTo = convertTo, nullReturn = nullReturn)
+                    charAge, iRange = numericTimeConvert(text = ageMatch, 
+                        convertTo = convertTo, nullReturn = nullReturn,
+                        flagRange = flagRange)
+                    flags.append(iRange)
 
                 elif i != 'Characteristics':
-                    ageCounter.append(numericTimeConvert(text = matches[1], 
-                        convertTo = convertTo, nullReturn = nullReturn))
+                    iAge, iRange = numericTimeConvert(text = matches[1], 
+                        convertTo = convertTo, nullReturn = nullReturn,
+                        flagRange = flagRange)
+                    ageCounter.append(iAge)
+                    flags.append(iRange)
 
     ageCounter = [x for x in ageCounter if x != nullReturn]
 
+    if flagRange is True:
+        flagged = any(flags)
+    else:
+        flagged = False 
+    
     if charAge != nullReturn:
         if charAge in ageCounter:
-            return sum(ageCounter), 'Sample'
+            return sum(ageCounter), 'Sample', flagged
         elif charAge not in ageCounter and len(ageCounter) > 0:
-            return sum([charAge, sum(ageCounter)]), 'Sample'
+            return sum([charAge, sum(ageCounter)]), 'Sample', flagged
         else:
-            return charAge, 'Sample'
+            return charAge, 'Sample', flagged
     elif charAge == nullReturn and len(ageCounter) > 0:
-        return sum(ageCounter), 'Sample'
+        return sum(ageCounter), 'Sample', flagged
     else:
         if tryAgeStudy is True:
-            gseAttempt = gseAgeExtract(urlText = urlText, convertTo = convertTo, 
-                checkConverts = checkConverts, parseIDs = parseStudyIDs,
-                nullReturn = nullReturn)
+            gseAttempt, flagged = gseAgeExtract(urlText = urlText, 
+                convertTo = convertTo, checkConverts = checkConverts, 
+                parseIDs = parseStudyIDs, nullReturn = nullReturn, 
+                flagRange = flagRange)
             if gseAttempt == nullReturn and tryAgePMID is True:
-                pmidAttempt = pmidAgeExtract(urlText = urlText, sectionID = pmidSection,
-                    convertTo = convertTo, checkConverts = checkConverts,
-                    nullReturn =  nullReturn)
-                return pmidAttempt, 'Text'
+                pmidAttempt, flagged = pmidAgeExtract(urlText = urlText, 
+                    sectionID = pmidSection, convertTo = convertTo, 
+                    checkConverts = checkConverts, nullReturn =  nullReturn,
+                    flagRange = flagRange)
+                return pmidAttempt, 'Text', flagged
 
             elif gseAttempt == nullReturn and tryAgePMID is False:
-                return nullReturn, 'Study'
+                return nullReturn, 'Study', flagged
             else:
-                return gseAttempt, 'Study'
+                return gseAttempt, 'Study', flagged
         else:
-            return nullReturn, 'Sample'
+            return nullReturn, 'Sample', flagged
 
 
 def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week', 
-    'month', 'year'], nullReturn = 'n/a'):
+    'month', 'year'], nullReturn = 'n/a', flagRange = True):
     """ Convert text into a numerical time. Some general rules: Check will be 
         made for a range of numbers, e.g. 12-13, and averaged. If no match, then 
-        check for single numbers, e.g. 12. However, if "for" is in front of this 
-        number, then it needs to be added to other numeric matches (e.g. "12 
-        weeks old for 2 weeks" == 14). This syntax is ideal, however one could 
-        possibly check that the 12 != 2, with the expectation that the
-        likelihood is low that it would read "7 weeks old for 7 weeks".
-        These checks can be added in the future. Currently only able to process
+        check for single numbers, e.g. 12. However, if "for|after" is in front of 
+        this number, then it will be added to other numeric matches (e.g. "12 
+        weeks old for 2 weeks" == 14). Currently only able to process
         days, weeks, months, and years (shorter time units are typically reserved
-        for exposures, such as a drug, rather than the animal's age). 
+        for exposures, such as a drug, rather than the animal's age). The regexes
+        are read in from a built-in internal dictionary (timeReDict). Additionally,
+        extremely wide time ranges can be flagged, as some experiments may only
+        sacrifice mice as they reach a certain physiological state, which could
+        vary months, and thus would be uninformative to extract a "true" age.
 
         Args:
             text: Str - text to be parsed
             convertTo: Str - Converted time units ['day', 'week', 'month', 'year']
             nullReturn: Str - Return if no numbers found
             checkConverts: List - Time units to convert to convertTo unit
+            flagRange: Bool - Flag a unexpectedly wide range with a printout.
+                The range will be read on the built-in timeReDict dictionary.
         
         Return:
-            nums - Float - Converted number in the text (to weeks)
+            numSum - Float - Converted number in the text (to weeks) from average
+                of total ages plus durations
+            flagged: Bool - If requested, a T/F flag for wide age ranges
         
     TODO: add sentence split, excl terms (cell-stuff)
     """
+    flagged = False
     if text == nullReturn:
-        return nullReturn
+        return nullReturn, flagged
 
     checkConverts = [re.sub('s$', '', x.lower()) for x in checkConverts]
     convertTo = re.sub('s$', '', convertTo.lower())
@@ -305,28 +324,95 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
         raise ValueError("Times must be in ['day', 'week', 'month', 'year']")
     
     text = re.sub('(\D)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
-    text = re.sub('(\d+)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
-    splitWords = text.lower().strip().split()
-    strToNumConvert = []
-    for word in splitWords:
-        if word in numberDict:
-            strToNumConvert.append(str(numberDict[word]))
-        else:
-            strToNumConvert.append(word)
-    strToNumConvert = ' '.join(strToNumConvert)
-
-    nums = 0
+    text = re.sub('(\d+)\-(\D)', '\\1 \\2', text).lower()
+    
+    nums, durs  = [], []
+        
     for convertFrom in checkConverts:
-        nums = addAgeStrings(nums, strToNumConvert = strToNumConvert, 
+        
+        re1, re2 = timeReDict[convertFrom]['timeSub1'], timeReDict[convertFrom]['timeSub2']
+        timeSub = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{0})|(\d+\.?\d?){1}(\-\d+\.?\d?{1})'.format(re1, re2))
+        timeSpacer1 = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{1})'.format(re1, re2))
+        timeSpacer2 = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{1})'.format(re2, re1))
+        timeSpacer3 = re.compile('(\d+\.?\d?)({0})'.format(re1))
+        timeSpacer4 = re.compile('(\d+\.?\d?)({0})'.format(re2))
+        if timeSub.findall(text):
+            textUse = ''.join([x for x in timeSub.findall(text)[0]])
+        else:
+            textUse = text
+
+        if timeSpacer1.findall(textUse):
+            textUse = timeSpacer1.sub('\\1\\2', textUse)    
+        elif timeSpacer2.findall(textUse):
+            textUse = timeSpacer2.sub('\\1\\2', textUse)    
+        elif timeSpacer3.findall(textUse):
+            textUse = timeSpacer3.sub('\\1 \\2', textUse)    
+        elif timeSpacer4.findall(textUse):
+            textUse = timeSpacer4.sub('\\1 \\2', textUse)    
+        
+        splitWords = textUse.lower().strip().split()
+        strToNumConvert = []
+        for word in splitWords:
+            if word in numberDict:
+                strToNumConvert.append(str(numberDict[word]))
+            else:
+                strToNumConvert.append(word)
+        strToNumConvert = ' '.join(strToNumConvert)
+        
+        nums, durs = enumAgeStrings(nums, durs, strToNumConvert = strToNumConvert, 
             convertFrom = convertFrom, convertTo = convertTo)
+        
+    if len(nums) > 0:
+        
+        if flagRange is True:
+            nums.sort()
+            for i, j in enumerate(nums):
+                if i+1 != len(nums):
+                    if (nums[i+1] - nums[i]) > timeReDict[convertTo]['flagRange']:
+                        print('Warning, very wide range of ages found ({0} to '
+                            '{1} {2})'.format(nums[i], nums[i+1], convertTo))
+                        flagged = True
 
-    if nums == 0:
-        return nullReturn
-    else:
-        return nums
+        numSum = np.nanmean(nums)
+        if len(durs) > 0:
+            if flagRange is True:
+                durs.sort()
+                for i, j in enumerate(durs):
+                    if i+1 != len(durs):
+                        if (durs[i+1] - durs[i]) > timeReDict[convertTo]['flagRange']:
+                            print('Warning, very wide range of durations found ({0} to '
+                                '{1} {2})'.format(durs[i], durs[i+1], convertTo))
+                            flagged = True    
+            
+            numSum += np.nansum(durs)
+
+        if numSum == 0:
+            return nullReturn, flagged
+        else:
+            return numSum, flagged
+
+    elif len(nums) == 0 and len(durs) > 0:
+        if flagRange is True:
+                durs.sort()
+                for i, j in enumerate(durs):
+                    if i+1 != len(durs):
+                        if (durs[i+1] - durs[i]) > timeReDict[convertTo]['flagRange']:
+                            print('Warning, very wide range of durations found ({0} to '
+                                '{1} {2})'.format(durs[i], durs[i+1], convertTo))
+                            flagged = True    
+            
+        numSum = np.nansum(durs)
+        if numSum == 0:
+            return nullReturn, flagged
+        else:
+            return numSum, flagged
+
+    elif len(nums) == 0 and len(durs) == 0:
+        return nullReturn, flagged
 
 
-def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'):
+def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day', 
+    convertTo = 'week'):
     """ Find instances of time, and convert to a quantitative value (perhaps of 
         another time unit). Add time matches to counter, converted. Checks made 
         for durations, e.g. "for 2 weeks", and if found, these are added to nums.
@@ -345,37 +431,71 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
     """
     convertCoef = timeConversions(convertFrom = convertFrom, convertTo = convertTo)
 
-    if convertFrom == 'day':
-        re1, re2 = '[ \-]day', r'[ \-]d[ \.s\,]'
-    if convertFrom == 'week':
-        re1, re2 = '[ \-]week', r'[ \-]wk[ \.s\,]'
-    if convertFrom == 'month':
-        re1, re2 = '[ \-]month', r'[ \-]mo[ \.s\,]'
-    if convertFrom == 'year':
-        re1, re2 = '[ \-]year', r'[ \-]yr[ \.s\,]'
+    re1 = timeReDict[convertFrom]['timeMatch1']
+    re2 = timeReDict[convertFrom]['timeMatch2']
+    re3 = timeReDict[convertFrom]['timeMatch3']
 
-    timeMatches = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|(?<!for )(\d+\.?\d+?){1}'.format(re1, re2))
-    timeMatchesDur = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}'.format(re1, re2))
+    timeMatches1 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|'
+                '(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}|(?<!after )(\d+\-?\d+?){0}|'
+                '(?<!after )(\d+\-?\d+?){1}|(?<!after )(\d+){0}|(?<!after )(\d+){1}|'
+                '(?<!after )(\d+\.?\d+?){0}|(?<!after )(\d+\.?\d+?){1}|'
+                '(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
 
-    times = set(re.findall(timeMatches, strToNumConvert))
-    if re.findall(timeMatchesDur, strToNumConvert):
-        timeDurs = set(re.findall(timeMatchesDur, strToNumConvert)[0])
+    timeMatches2 = re.compile('(?<!for )(\d+\-?\d+?){0}|(?<!for )(\d+\-?\d+?){1}|'
+                '(?<!for )(\d+){0}|(?<!for )(\d+){1}|(?<!for )(\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?){1}|(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!for )(\d+\.?\d+?\-\d+\.?\d+?){1}|'
+                '(?<!after )(\d+\-?\d+?){0}|(?<!after )(\d+\-?\d+?){1}|'
+                '(?<!after )(\d+){0}|(?<!after )(\d+){1}|(?<!after )(\d+\.?\d+?){0}|'
+                '(?<!after )(\d+\.?\d+?){1}|(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                '(?<!after )(\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
+
+    timeMatchesDur1 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|'
+                'for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|'
+                'for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}|'
+                'after (\d+\-?\d+?){0}|after (\d+\-?\d+?){1}|'
+                'after (\d+){0}|after (\d+){1}|after (\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?){1}|after (\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re2))
+
+    timeMatchesDur2 = re.compile('for (\d+\-?\d+?){0}|for (\d+\-?\d+?){1}|'
+                'for (\d+){0}|for (\d+){1}|for (\d+\.?\d+?){0}|for (\d+\.?\d+?){1}|'
+                'for (\d+\.?\d+?\-\d+\.?\d+?){0}|for (\d+\.?\d+?\-\d+\.?\d+?){1}|'
+                'after (\d+\-?\d+?){0}|after (\d+\-?\d+?){1}|'
+                'after (\d+){0}|after (\d+){1}|after (\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?){1}|after (\d+\.?\d+?\-\d+\.?\d+?){0}|'
+                'after (\d+\.?\d+?\-\d+\.?\d+?){1}'.format(re1, re3))
+    
+    if timeMatches1.findall(strToNumConvert):
+        times = set(timeMatches1.findall(strToNumConvert))
+    elif timeMatches2.findall(strToNumConvert):
+        times = set(timeMatches2.findall(strToNumConvert)) 
+    else:
+        times = [] 
+
+    if timeMatchesDur1.findall(strToNumConvert):
+        timeDurs = set(timeMatchesDur1.findall(strToNumConvert))
+    elif timeMatchesDur2.findall(strToNumConvert):
+        timeDurs = set(timeMatchesDur2.findall(strToNumConvert))   
     else:
         timeDurs = []
-
+    
     for match in times:
         for x in match:
             if len(x.split('-')) == 2:
                 try:
-                    nums += np.mean([float(n) for n in x.split('-') if float(n) not in timeDurs])*convertCoef
+                    nums.append(np.mean([float(n) for n in x.split('-') if float(n) not in timeDurs])*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
                     print(str(err))
             else:
                 try:
-                    if x not in timeDurs:
-                        nums += float(x)*convertCoef
+                    if x not in [''.join(x) for x in timeDurs]:
+                        nums.append(float(x)*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
@@ -385,20 +505,20 @@ def addAgeStrings(nums, strToNumConvert, convertFrom = 'day', convertTo = 'week'
         for x in match:
             if len(x.split('-')) == 2:
                 try:
-                    nums += np.mean([float(n) for n in x.split('-')])*convertCoef
+                    durs.append(np.mean([float(n) for n in x.split('-')])*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
                     print(str(err))
             else:
                 try:
-                    nums += int(x)*convertCoef
+                    durs.append(float(x)*convertCoef)
                 except ValueError:
                     continue
                 except Exception as err:
                     print(str(err))
-
-    return nums
+    
+    return nums, durs
 
 
 def timeConversions(convertFrom, convertTo):
@@ -431,19 +551,22 @@ def timeConversions(convertFrom, convertTo):
 
 def gseAgeExtract(urlText, convertTo = 'week', 
     checkConverts = ['day', 'week', 'month', 'year'], 
-    parseIDs = ['Summary', 'Overall design'], nullReturn = 'n/a'):
+    parseIDs = ['Summary', 'Overall design'], nullReturn = 'n/a',
+    flagRange = True):
     """ Akin to extracting age from individual sample descriptions, extract age
         from GSE study information.
 
         Return:
             age: Float - Estimated age
+            flagged: Bool - Wide age range flag, if called for by flagRange arg
 
     TODO: Different ages may exist for different experimental groups! Check 
         GSE7191 as an example. Currently this function (incorrectly) combines
         and adds the ages of each group
     
     """
-    ageCounter, charAge = [], nullReturn
+    flagged = False
+    ageCounter, charAge, flags = [], nullReturn, []
 
     newText = sampToGSEText(urlText)
     cleanText = re.sub(r'<.*?>|\\n', ' ', newText)
@@ -451,22 +574,29 @@ def gseAgeExtract(urlText, convertTo = 'week',
         if re.findall('({0}) \n (.*)'.format(i), cleanText):
             matches = list(re.findall('({0}) \n (.*)'.format(i), cleanText))[0]
             if len(matches) > 1:
-                ageCounter.append(numericTimeConvert(text = matches[1], 
-                        convertTo = convertTo, nullReturn = nullReturn))
+                iAge, iRange = numericTimeConvert(text = matches[1], 
+                        convertTo = convertTo, nullReturn = nullReturn, 
+                        flagRange = flagRange)
+                ageCounter.append(iAge)
+                flags.append(iRange)
 
     ageCounter = [x for x in ageCounter if x != nullReturn]
+    if flagRange is True:
+        flagged = any(flags)
+    else:
+        flagged = False 
 
     if charAge != nullReturn:
         if charAge in ageCounter:
-            return sum(ageCounter)    
+            return sum(ageCounter), flagged    
         elif charAge not in ageCounter and len(ageCounter) > 0:
-            return sum([charAge, sum(ageCounter)])
+            return sum([charAge, sum(ageCounter)]), flagged
         else:
-            return charAge
+            return charAge, flagged
     elif charAge == nullReturn and len(ageCounter) > 0:
-        return sum(ageCounter)
+        return sum(ageCounter), flagged
     else:
-        return nullReturn
+        return nullReturn, flagged
 
 
 def sampToGSEText(urlText):
@@ -546,7 +676,8 @@ def geoGenderExtract(urlText, protocolEntries = ['Treatment', 'Growth'],
 
 
 def pmidAgeExtract(urlText, sectionID = 'methods', convertTo = 'week', 
-    checkConverts = ['day', 'week', 'month', 'year'], nullReturn = 'n/a'):
+    checkConverts = ['day', 'week', 'month', 'year'], nullReturn = 'n/a',
+    flagRange = True):
     """ Attempt age extraction from PMID ID link """
 
     newText = sampToGSEText(urlText)
@@ -566,10 +697,13 @@ def pmidAgeExtract(urlText, sectionID = 'methods', convertTo = 'week',
 
     sectionText = pmidSectionExtraction(pmidText = pubText, sectionID = sectionID)
 
-    age = numericTimeConvert(text = sectionText, convertTo = convertTo, 
-                            nullReturn = nullReturn)
+    age, flagged = numericTimeConvert(text = sectionText, convertTo = convertTo, 
+                            nullReturn = nullReturn, flagRange = flagRange)
+    
+    if flagRange is False:
+        flagged = False
                         
-    return age
+    return age, flagged
 
 
 def pmidSectionExtraction(pmidText, sectionID, possibleSections = ['abstract', 

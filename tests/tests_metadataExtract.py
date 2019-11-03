@@ -72,6 +72,9 @@ class TestDataProcess(unittest.TestCase):
         self.assertEqual('n/a', samp3Dict['Age'])
         self.assertEqual('n/a', samp3Dict['Gender'])
         self.assertEqual(False, samp3Dict['Cells'])
+        self.assertEqual(samp3Dict['Flags']['Sort'], True)
+        samp3Dict = util.extractGEOSampleInfo(samp3, tryAgePMID = False, flagSort = False)
+        self.assertEqual(samp3Dict['Flags']['Sort'], False)
         
         self.assertEqual(13.5, samp4Dict['Age'])
         self.assertEqual('Female', samp4Dict['Gender'])

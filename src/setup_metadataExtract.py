@@ -33,7 +33,9 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     'Growth protocol'], convertAgeTo = 'week', checkAgeConverts = ['day', 'week',
     'month', 'year'], nullReturn = 'n/a', tryAgeStudy = True,
     parseStudyIDs = ['Summary', 'Overall design'], tryAgePMID = True,
-    pmidSection = 'methods', flagRange = True):
+    pmidSection = 'methods', flagRange = True, flagSort = True,
+    sortDetectProt = ['CD4+', 'T cells', 'sort-purified', 'cell-sort', 'FACS',
+    'cell sorting']):
     """ Extract metadata from a GEO GSM ID. Options to keep detected
         in vitro samples, and to exclude multichannel expression assays (e.g. 
         microarrays). Not all structured entries need to be parsed, however
@@ -68,6 +70,8 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
                 extracted some GSE nor GSM
             pmidSection: Str - Full-text paper section in which to expect an age
                 value. Default to 'methods'
+            flagSort: Bool - Flag potential cell-sort protocols
+            sortDetect: List - List of cell-sort tags, use geoSampleCellCheck()
             
         Returns:
             meta - Dict: Items in extracts for sampleID
@@ -104,6 +108,13 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
 
     meta = dict()
     meta['Flags'] = dict()
+    if flagSort is True:
+        meta['Flags']['Sort'] = geoSampleCellCheck(urlText = cleanText, 
+            cellDetectChar = 'null', cellDetectProt = sortDetectProt, 
+            protocolEntries = parseCellIDs)
+    else:
+        meta['Flags']['Sort'] = False
+        
     for extract in extracts:
         if extract == 'ID':
             meta[extract] = sampleID

@@ -33,7 +33,7 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     'Growth protocol'], convertAgeTo = 'week', checkAgeConverts = ['day', 'week',
     'month', 'year'], nullReturn = 'n/a', tryAgeStudy = True,
     parseStudyIDs = ['Summary', 'Overall design'], tryAgePMID = True,
-    pmidSection = 'methods'):
+    pmidSection = 'methods', flagRange = True):
     """ Extract metadata from a GEO GSM ID. Options to keep detected
         in vitro samples, and to exclude multichannel expression assays (e.g. 
         microarrays). Not all structured entries need to be parsed, however
@@ -103,6 +103,7 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     moleExtract = re.findall(r'Extracted molecule \n (.*) \n', cleanText)[0]
 
     meta = dict()
+    meta['Flags'] = dict()
     for extract in extracts:
         if extract == 'ID':
             meta[extract] = sampleID
@@ -116,12 +117,14 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
         elif extract == 'Organism':
             meta[extract] = GEOOrganism
         elif extract == 'Age':
-            meta[extract], ageSource = geoAgeExtract(urlText = urlGetText, 
+            meta[extract], ageSource, flagged = geoAgeExtract(urlText = urlGetText, 
                     parseAgeIDs = parseAgeIDs, convertTo = convertAgeTo, 
                     nullReturn = nullReturn, checkConverts = checkAgeConverts,
                     tryAgeStudy = tryAgeStudy, parseStudyIDs = parseStudyIDs,
-                    tryAgePMID = tryAgePMID, pmidSection = pmidSection)
+                    tryAgePMID = tryAgePMID, pmidSection = pmidSection,
+                    flagRange = flagRange)
             meta['Age Source'] = ageSource
+            meta['Flags']['Age'] = flagged
         elif extract == 'Gender':
             meta[extract] = geoGenderExtract(urlGetText)
         elif extract == 'Expression':
@@ -178,7 +181,7 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
      'Description', 'Treatment protocol', 'Growth protocol'], convertTo = 'week',
     nullReturn = 'n/a', checkConverts = ['day', 'week', 'month', 'year'],
     tryAgeStudy = True, parseStudyIDs = ['Summary', 'Overall design'],
-    tryAgePMID = True, pmidSection = 'methods'):
+    tryAgePMID = True, pmidSection = 'methods', flagRange = True):
     """ Extract age from GEO sample (GSM) text. Either/or the 'Characteristics'
         or protocols/descriptions entries. See numericTimeConvert() docstring for
         more detail on the approach. Return null on cell detect. If the same age
@@ -204,11 +207,14 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
         Return:
             age: Float - Estimated age
             source: Str - Source of age scrape('Sample', 'Study', 'Text')
+            flagged: Bool - Flag for wide age range, if they are to even be 
+                checked, a la flagRange arg
     """
+    flagged = False
     if geoSampleCellCheck(urlText) is True and checkCell == True:
-        return nullReturn, nullReturn
+        return nullReturn, nullReturn, flagged
 
-    ageCounter, charAge = [], nullReturn
+    ageCounter, charAge, flags = [], nullReturn, []
     
     cleanText = re.sub(r'<.*?>|\\n', ' ', urlText)
     for i in parseAgeIDs:
@@ -217,41 +223,53 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
             if len(matches) > 1:
                 if i == 'Characteristics' and 'age:' in matches[1]:
                     ageMatch = re.findall('\<br\>age\:(.*)\<br\>', urlText)[0]
-                    charAge = numericTimeConvert(text = ageMatch, 
-                        convertTo = convertTo, nullReturn = nullReturn)
+                    charAge, iRange = numericTimeConvert(text = ageMatch, 
+                        convertTo = convertTo, nullReturn = nullReturn,
+                        flagRange = flagRange)
+                    flags.append(iRange)
 
                 elif i != 'Characteristics':
-                    ageCounter.append(numericTimeConvert(text = matches[1], 
-                        convertTo = convertTo, nullReturn = nullReturn))
+                    iAge, iRange = numericTimeConvert(text = matches[1], 
+                        convertTo = convertTo, nullReturn = nullReturn,
+                        flagRange = flagRange)
+                    ageCounter.append(iAge)
+                    flags.append(iRange)
 
     ageCounter = [x for x in ageCounter if x != nullReturn]
 
+    if flagRange is True:
+        flagged = any(flags)
+    else:
+        flagged = False 
+
     if charAge != nullReturn:
         if charAge in ageCounter:
-            return sum(ageCounter), 'Sample'
+            return sum(ageCounter), 'Sample', flagged
         elif charAge not in ageCounter and len(ageCounter) > 0:
-            return sum([charAge, sum(ageCounter)]), 'Sample'
+            return sum([charAge, sum(ageCounter)]), 'Sample', flagged
         else:
-            return charAge, 'Sample'
+            return charAge, 'Sample', flagged
     elif charAge == nullReturn and len(ageCounter) > 0:
-        return sum(ageCounter), 'Sample'
+        return sum(ageCounter), 'Sample', flagged
     else:
         if tryAgeStudy is True:
-            gseAttempt = gseAgeExtract(urlText = urlText, convertTo = convertTo, 
-                checkConverts = checkConverts, parseIDs = parseStudyIDs,
-                nullReturn = nullReturn)
+            gseAttempt, flagged = gseAgeExtract(urlText = urlText, 
+                convertTo = convertTo, checkConverts = checkConverts, 
+                parseIDs = parseStudyIDs, nullReturn = nullReturn, 
+                flagRange = flagRange)
             if gseAttempt == nullReturn and tryAgePMID is True:
-                pmidAttempt = pmidAgeExtract(urlText = urlText, sectionID = pmidSection,
-                    convertTo = convertTo, checkConverts = checkConverts,
-                    nullReturn =  nullReturn)
-                return pmidAttempt, 'Text'
+                pmidAttempt, flagged = pmidAgeExtract(urlText = urlText, 
+                    sectionID = pmidSection, convertTo = convertTo, 
+                    checkConverts = checkConverts, nullReturn =  nullReturn,
+                    flagRange = flagRange)
+                return pmidAttempt, 'Text', flagged
 
             elif gseAttempt == nullReturn and tryAgePMID is False:
-                return nullReturn, 'Study'
+                return nullReturn, 'Study', flagged
             else:
-                return gseAttempt, 'Study'
+                return gseAttempt, 'Study', flagged
         else:
-            return nullReturn, 'Sample'
+            return nullReturn, 'Sample', flagged
 
 
 def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week', 
@@ -277,12 +295,15 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
                 The range will be read on the built-in timeReDict dictionary.
         
         Return:
-            nums - Float - Converted number in the text (to weeks)
+            numSum - Float - Converted number in the text (to weeks) from average
+                of total ages plus durations
+            flagged: Bool - If requested, a T/F flag for wide age ranges
         
     TODO: add sentence split, excl terms (cell-stuff)
     """
+    flagged = False
     if text == nullReturn:
-        return nullReturn
+        return nullReturn, flagged
 
     checkConverts = [re.sub('s$', '', x.lower()) for x in checkConverts]
     convertTo = re.sub('s$', '', convertTo.lower())
@@ -294,7 +315,7 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
     text = re.sub('(\D)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     text = re.sub('(\d+)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
     
-    nums, durs = [], []
+    nums, durs  = [], []
     for convertFrom in checkConverts:
         
         re1, re2 = timeReDict[convertFrom]['timeSub1'], timeReDict[convertFrom]['timeSub2']
@@ -337,6 +358,7 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
                     if (nums[i+1] - nums[i]) > timeReDict[convertTo]['flagRange']:
                         print('Warning, very wide range of ages found ({0} to '
                             '{1} {2})'.format(nums[i], nums[i+1], convertTo))
+                        flagged = True
 
         numSum = np.nanmean(nums)
         if len(durs) > 0:
@@ -347,16 +369,17 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
                         if (durs[i+1] - durs[i]) > timeReDict[convertTo]['flagRange']:
                             print('Warning, very wide range of durations found ({0} to '
                                 '{1} {2})'.format(durs[i], durs[i+1], convertTo))
-                                
+                            flagged = True    
+
             numSum += np.nansum(durs)
 
         if numSum == 0:
-            return nullReturn
+            return nullReturn, flagged
         else:
-            return numSum
+            return numSum, flagged
 
     elif len(nums) == 0:
-        return nullReturn
+        return nullReturn, flagged
 
 
 def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day', 
@@ -499,19 +522,22 @@ def timeConversions(convertFrom, convertTo):
 
 def gseAgeExtract(urlText, convertTo = 'week', 
     checkConverts = ['day', 'week', 'month', 'year'], 
-    parseIDs = ['Summary', 'Overall design'], nullReturn = 'n/a'):
+    parseIDs = ['Summary', 'Overall design'], nullReturn = 'n/a',
+    flagRange = True):
     """ Akin to extracting age from individual sample descriptions, extract age
         from GSE study information.
 
         Return:
             age: Float - Estimated age
+            flagged: Bool - Wide age range flag, if called for by flagRange arg
 
     TODO: Different ages may exist for different experimental groups! Check 
         GSE7191 as an example. Currently this function (incorrectly) combines
         and adds the ages of each group
     
     """
-    ageCounter, charAge = [], nullReturn
+    flagged = False
+    ageCounter, charAge, flags = [], nullReturn, []
 
     newText = sampToGSEText(urlText)
     cleanText = re.sub(r'<.*?>|\\n', ' ', newText)
@@ -519,22 +545,29 @@ def gseAgeExtract(urlText, convertTo = 'week',
         if re.findall('({0}) \n (.*)'.format(i), cleanText):
             matches = list(re.findall('({0}) \n (.*)'.format(i), cleanText))[0]
             if len(matches) > 1:
-                ageCounter.append(numericTimeConvert(text = matches[1], 
-                        convertTo = convertTo, nullReturn = nullReturn))
+                iAge, iRange = numericTimeConvert(text = matches[1], 
+                        convertTo = convertTo, nullReturn = nullReturn, 
+                        flagRange = flagRange)
+                ageCounter.append(iAge)
+                flags.append(iRange)
 
     ageCounter = [x for x in ageCounter if x != nullReturn]
+    if flagRange is True:
+        flagged = any(flags)
+    else:
+        flagged = False 
 
     if charAge != nullReturn:
         if charAge in ageCounter:
-            return sum(ageCounter)    
+            return sum(ageCounter), flagged    
         elif charAge not in ageCounter and len(ageCounter) > 0:
-            return sum([charAge, sum(ageCounter)])
+            return sum([charAge, sum(ageCounter)]), flagged
         else:
-            return charAge
+            return charAge, flagged
     elif charAge == nullReturn and len(ageCounter) > 0:
-        return sum(ageCounter)
+        return sum(ageCounter), flagged
     else:
-        return nullReturn
+        return nullReturn, flagged
 
 
 def sampToGSEText(urlText):
@@ -614,7 +647,8 @@ def geoGenderExtract(urlText, protocolEntries = ['Treatment', 'Growth'],
 
 
 def pmidAgeExtract(urlText, sectionID = 'methods', convertTo = 'week', 
-    checkConverts = ['day', 'week', 'month', 'year'], nullReturn = 'n/a'):
+    checkConverts = ['day', 'week', 'month', 'year'], nullReturn = 'n/a',
+    flagRange = True):
     """ Attempt age extraction from PMID ID link """
 
     newText = sampToGSEText(urlText)
@@ -634,10 +668,13 @@ def pmidAgeExtract(urlText, sectionID = 'methods', convertTo = 'week',
 
     sectionText = pmidSectionExtraction(pmidText = pubText, sectionID = sectionID)
 
-    age = numericTimeConvert(text = sectionText, convertTo = convertTo, 
-                            nullReturn = nullReturn)
+    age, flagged = numericTimeConvert(text = sectionText, convertTo = convertTo, 
+                            nullReturn = nullReturn, flagRange = flagRange)
+    
+    if flagRange is False:
+        flagged = False
                         
-    return age
+    return age, flagged
 
 
 def pmidSectionExtraction(pmidText, sectionID, possibleSections = ['abstract', 

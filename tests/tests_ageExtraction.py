@@ -100,23 +100,65 @@ class TestDataProcess(unittest.TestCase):
         case7 = '20wks-1.5yrs'
         nullCase1 = '6-10 eons for 7 iotas'
         
-        self.assertEqual(10, util.numericTimeConvert(case1a, convertTo = 'week'))
-        self.assertEqual(70, util.numericTimeConvert(case1a, convertTo = 'Days'))
-        self.assertEqual('n/a', util.numericTimeConvert(case1a, convertTo = 'Days', 
-            checkConverts = ['day', 'month']))
-        self.assertEqual(10, util.numericTimeConvert(case1b, convertTo = 'week'))
-        self.assertEqual(70, util.numericTimeConvert(case1b, convertTo = 'Days'))
-        self.assertEqual('n/a', util.numericTimeConvert(case1b, convertTo = 'Days', 
-            checkConverts = ['day', 'month']))
-        self.assertEqual(10, util.numericTimeConvert(case1c, convertTo = 'week'))
-        self.assertEqual(70, util.numericTimeConvert(case1c, convertTo = 'Days'))
-        self.assertEqual('n/a', util.numericTimeConvert(case1c, convertTo = 'Days', 
-            checkConverts = ['day', 'month']))
+        val, flag = util.numericTimeConvert(case1a, convertTo = 'week')
+        self.assertEqual(10, val)
+        self.assertEqual(False, flag)
+
+        val, flag = util.numericTimeConvert(case1a, convertTo = 'Days')
+        self.assertEqual(70, val)
+        self.assertEqual(False, flag)
         
-        self.assertEqual(21, int(util.numericTimeConvert(case5)))
-        self.assertEqual(8.5, util.numericTimeConvert(case6a))
-        self.assertEqual(8.25, util.numericTimeConvert(case6b))
-        self.assertEqual(49, util.numericTimeConvert(case7))
+        val, flag = util.numericTimeConvert(case1a, convertTo = 'Days',
+            checkConverts = ['day', 'month'])
+        self.assertEqual('n/a', val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case1b, convertTo = 'week')
+        self.assertEqual(10, val)
+        self.assertEqual(False, flag)
+
+        val, flag = util.numericTimeConvert(case1b, convertTo = 'Days')
+        self.assertEqual(70, val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case1b, convertTo = 'Days',
+            checkConverts = ['day', 'month'])
+        self.assertEqual('n/a', val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case1c, convertTo = 'week')
+        self.assertEqual(10, val)
+        self.assertEqual(False, flag)
+
+        val, flag = util.numericTimeConvert(case1c, convertTo = 'Days')
+        self.assertEqual(70, val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case1c, convertTo = 'Days',
+            checkConverts = ['day', 'month'])
+        self.assertEqual('n/a', val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case5, convertTo = 'week')
+        self.assertEqual(21, int(val))
+        self.assertEqual(True, flag)
+
+        val, flag = util.numericTimeConvert(case5, convertTo = 'week',
+            flagRange = False)
+        self.assertEqual(21, int(val))
+        self.assertEqual(False, flag)
+
+        val, flag = util.numericTimeConvert(case6a, convertTo = 'week')
+        self.assertEqual(8.5, val)
+        self.assertEqual(False, flag)
+
+        val, flag = util.numericTimeConvert(case6b, convertTo = 'week')
+        self.assertEqual(8.25, val)
+        self.assertEqual(False, flag)
+
+        val, flag = util.numericTimeConvert(case7, convertTo = 'week')
+        self.assertEqual(49, val)
+        self.assertEqual(True, flag)
         
         with self.assertRaises(ValueError):
             util.numericTimeConvert(case1a, convertTo = 'hrs')
@@ -124,22 +166,37 @@ class TestDataProcess(unittest.TestCase):
             util.numericTimeConvert(case1a, convertTo = 'week', 
                 checkConverts = ['hrs', 'weeks'])
     
-        self.assertEqual(15, util.numericTimeConvert(case2, convertTo = 'week'))
-        self.assertEqual(9, util.numericTimeConvert(case3, convertTo = 'week'))
-        self.assertEqual(2, util.numericTimeConvert(case4, convertTo = 'week'))
-        self.assertEqual('n/a', util.numericTimeConvert(nullCase1, convertTo = 'week'))
+        val, flag = util.numericTimeConvert(case2, convertTo = 'week')
+        self.assertEqual(15, val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case3, convertTo = 'week')
+        self.assertEqual(9, val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(case4, convertTo = 'week')
+        self.assertEqual(2, val)
+        self.assertEqual(False, flag)
+        
+        val, flag = util.numericTimeConvert(nullCase1, convertTo = 'week')
+        self.assertEqual('n/a', val)
+        self.assertEqual(False, flag)
+
         
         for text in ['7-8week', '7-8 weeks', '7wks-8wks', '7-8wk', '7weeks-8weeks', 
                     '6.5wks-8.5wks', '7wks-8 weeks']:
-            self.assertEqual(7.5, util.numericTimeConvert(text, convertTo = 'week'))
+            val, flag = util.numericTimeConvert(text, convertTo = 'week')
+            self.assertEqual(7.5, val)
 
         for text in ['10-12week', '10-12 weeks', '10wks-12wks', '10-12wk', 
                     '10.5weeks-11.5weeks', '10weeks-12weeks', '10weeks-12 wks']:
-            self.assertEqual(11, util.numericTimeConvert(text, convertTo = 'week'))
+            val, flag = util.numericTimeConvert(text, convertTo = 'week')
+            self.assertEqual(11, val)
         
         for text in ['4-10day', '4-10 days', '4days-10days', '4-10days', 
                        '4days-10days', '4days-10 days', '4d-10days']:
-            self.assertEqual(1, util.numericTimeConvert(text, convertTo = 'week'))
+            val, flag = util.numericTimeConvert(text, convertTo = 'week')
+            self.assertEqual(1, val)
         
 
     def test_geoAgeExtract(self):
@@ -158,48 +215,54 @@ class TestDataProcess(unittest.TestCase):
         samp5Text = requests.get(gsmURL + samp5).text
         samp6Text = requests.get(gsmURL + samp6).text
         
-        v1, s1 = util.geoAgeExtract(samp1Text)
+        v1, s1, f1 = util.geoAgeExtract(samp1Text)
         self.assertAlmostEqual(4.28571428, v1)
         self.assertEqual('Sample', s1)
+        self.assertEqual(False, f1)
 
-        v2, s2 = util.geoAgeExtract(samp2Text)
+        v2, s2, f2 = util.geoAgeExtract(samp2Text)
         self.assertEqual('n/a', v2)
         self.assertEqual('n/a', s2)
+        self.assertEqual(False, f2)
 
-        v3, s3 = util.geoAgeExtract(samp3Text, tryAgePMID = False)
+        v3, s3, f3 = util.geoAgeExtract(samp3Text, tryAgePMID = False)
         self.assertEqual('n/a', v3)
         self.assertEqual('Study', s3)
+        self.assertEqual(False, f3)
 
-        v4, s4 = util.geoAgeExtract(samp4Text)
+        v4, s4, f4 = util.geoAgeExtract(samp4Text)
         self.assertEqual(13.5, v4)
         self.assertEqual('Sample', s4)
+        self.assertEqual(False, f4)
 
-        v5, s5 = util.geoAgeExtract(samp5Text)
+        v5, s5, f5 = util.geoAgeExtract(samp5Text)
         self.assertEqual(16, v5)
         self.assertEqual('Sample', s5)
+        self.assertEqual(False, f5)
 
-        v6a, s6a = util.geoAgeExtract(samp6Text, tryAgeStudy = False)
+        v6a, s6a, f6 = util.geoAgeExtract(samp6Text, tryAgeStudy = False)
         self.assertEqual('n/a', v6a)
         self.assertEqual('Sample', s6a)
+        self.assertEqual(False, f6)
         
-        v6b, s6b = util.geoAgeExtract(samp6Text, tryAgeStudy = True)
+        v6b, s6b, _ = util.geoAgeExtract(samp6Text, tryAgeStudy = True)
         self.assertEqual(6.75, v6b)
         self.assertEqual('Study', s6b)
 
-        v1, s1 = util.geoAgeExtract(samp1Text, parseAgeIDs = ['Characteristics'])
+        v1, s1, _ = util.geoAgeExtract(samp1Text, parseAgeIDs = ['Characteristics'])
         self.assertAlmostEqual(4.28571428, v1)
         
-        v2, s2 = util.geoAgeExtract(samp2Text, parseAgeIDs = ['Characteristics'])
+        v2, s2, _ = util.geoAgeExtract(samp2Text, parseAgeIDs = ['Characteristics'])
         self.assertEqual('n/a', v2)
         
-        v4, s4 = util.geoAgeExtract(samp4Text, parseAgeIDs = ['Characteristics'])
+        v4, s4, _ = util.geoAgeExtract(samp4Text, parseAgeIDs = ['Characteristics'])
         self.assertEqual(1, v4)
         
-        v5a, s5a = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
+        v5a, s5a, _ = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
             tryAgeStudy = False)
         self.assertEqual('n/a', v5a)
         
-        v5b, s5b = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
+        v5b, s5b, _ = util.geoAgeExtract(samp5Text, parseAgeIDs = ['Characteristics'],
             tryAgeStudy = True)
         self.assertEqual(16, v5b)
         

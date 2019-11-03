@@ -252,7 +252,7 @@ def geoAgeExtract(urlText, checkCell = True, parseAgeIDs = ['Characteristics',
         flagged = any(flags)
     else:
         flagged = False 
-
+    
     if charAge != nullReturn:
         if charAge in ageCounter:
             return sum(ageCounter), 'Sample', flagged
@@ -358,10 +358,10 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
             else:
                 strToNumConvert.append(word)
         strToNumConvert = ' '.join(strToNumConvert)
-
+        
         nums, durs = enumAgeStrings(nums, durs, strToNumConvert = strToNumConvert, 
             convertFrom = convertFrom, convertTo = convertTo)
-
+        
     if len(nums) > 0:
         
         if flagRange is True:
@@ -383,7 +383,7 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
                             print('Warning, very wide range of durations found ({0} to '
                                 '{1} {2})'.format(durs[i], durs[i+1], convertTo))
                             flagged = True    
-
+            
             numSum += np.nansum(durs)
 
         if numSum == 0:
@@ -391,7 +391,23 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
         else:
             return numSum, flagged
 
-    elif len(nums) == 0:
+    elif len(nums) == 0 and len(durs) > 0:
+        if flagRange is True:
+                durs.sort()
+                for i, j in enumerate(durs):
+                    if i+1 != len(durs):
+                        if (durs[i+1] - durs[i]) > timeReDict[convertTo]['flagRange']:
+                            print('Warning, very wide range of durations found ({0} to '
+                                '{1} {2})'.format(durs[i], durs[i+1], convertTo))
+                            flagged = True    
+            
+        numSum = np.nansum(durs)
+        if numSum == 0:
+            return nullReturn, flagged
+        else:
+            return numSum, flagged
+
+    elif len(nums) == 0 and len(durs) == 0:
         return nullReturn, flagged
 
 
@@ -466,7 +482,7 @@ def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day',
         timeDurs = set(timeMatchesDur2.findall(strToNumConvert))   
     else:
         timeDurs = []
-
+    
     for match in times:
         for x in match:
             if len(x.split('-')) == 2:

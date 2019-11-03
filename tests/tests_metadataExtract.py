@@ -44,7 +44,8 @@ class TestDataProcess(unittest.TestCase):
         """ Check: Starting from the sample ID, proper extractions (including gender) """
 
         samp1, samp2, samp3 = 'GSM400641', 'GSM937915', 'GSM1402452'
-        samp4, samp5, fakeSamp = 'GSM1418737', 'GSM1282831', 'GSM99999999'
+        samp4, samp5, samp6 = 'GSM1418737', 'GSM1282831', 'GSM1338039'
+        fakeSamp = 'GSM9999999'
 
         with self.assertRaises(ValueError):
             util.extractGEOSampleInfo(fakeSamp)
@@ -60,6 +61,7 @@ class TestDataProcess(unittest.TestCase):
         samp3Dict = util.extractGEOSampleInfo(samp3, tryAgePMID = False)
         samp4Dict = util.extractGEOSampleInfo(samp4)
         samp5Dict = util.extractGEOSampleInfo(samp5)
+        samp6Dict = util.extractGEOSampleInfo(samp6)
         
         self.assertAlmostEqual(4.28571428, samp1Dict['Age'])
         self.assertEqual('n/a', samp1Dict['Gender'])
@@ -83,6 +85,10 @@ class TestDataProcess(unittest.TestCase):
         self.assertEqual(16, samp5Dict['Age'])
         self.assertEqual('Male', samp5Dict['Gender'])
         self.assertEqual(False, samp5Dict['Cells'])
+
+        self.assertAlmostEqual(9.42857142, samp6Dict['Age'])
+        self.assertEqual('Female', samp6Dict['Gender'])
+        self.assertEqual(False, samp6Dict['Cells'])
 
 
     def test_maxSectionMatch(self):

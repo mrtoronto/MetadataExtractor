@@ -10,10 +10,11 @@ organism = 'Mus musculus'
 
 geneFileTag = 'gene_result_'
 geneOrgFile = geneFileTag + re.sub(' ', '_', organism).lower()
+dietFileTag = 'mouseDiets'
 valsToAlphaNumLower = True
-overwrite = True
+overwrite = False
 
-def main(geneOrgFile, refDirectory, organism, overwrite, valsToAlphaNumLower):
+def main(geneOrgFile, refDirectory, organism, dietFileTag, overwrite, valsToAlphaNumLower):
 
     if geneOrgFile + '.txt' not in os.listdir(refDirectory):
         raise FileNotFoundError('Gene list for {0} not found'.format(organism))
@@ -29,6 +30,15 @@ def main(geneOrgFile, refDirectory, organism, overwrite, valsToAlphaNumLower):
         with open('{0}/{1}.json'.format(refDirectory, geneOrgFile), 'w') as fout:
             json.dump(geneDict, fout, indent = 4)
 
+    if organism == 'Mus musculus':
+        if dietFileTag + '.json' not in os.listdir(refDirectory) or overwrite is True:
+
+            dietDict = wrangler.mouseDietWrangler()
+
+            with open('{0}/{1}.json'.format(refDirectory, dietFileTag), 'w') as fout:
+                json.dump(dietDict, fout, indent = 4)
+
+
 if __name__ == "__main__":
     
-    main(geneOrgFile, refDirectory, organism, overwrite, valsToAlphaNumLower)
+    main(geneOrgFile, refDirectory, organism, dietFileTag, overwrite, valsToAlphaNumLower)

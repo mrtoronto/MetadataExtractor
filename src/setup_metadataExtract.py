@@ -35,7 +35,7 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
     parseStudyIDs = ['Summary', 'Overall design'], tryAgePMID = True,
     pmidSection = 'methods', flagRange = True, flagSort = True,
     sortDetectProt = ['CD4+', 'T cells', 'sort-purified', 'cell-sort', 'FACS',
-    'cell sorting']):
+    'cell sorting', 'flow cytometry']):
     """ Extract metadata from a GEO GSM ID. Options to keep detected
         in vitro samples, and to exclude multichannel expression assays (e.g. 
         microarrays). Not all structured entries need to be parsed, however
@@ -114,7 +114,7 @@ def extractGEOSampleInfo(sampleID, organism = 'Mus musculus', extracts = ['ID',
             protocolEntries = parseCellIDs)
     else:
         meta['Flags']['Sort'] = False
-        
+
     for extract in extracts:
         if extract == 'ID':
             meta[extract] = sampleID
@@ -324,9 +324,10 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
         raise ValueError("Times must be in ['day', 'week', 'month', 'year']")
     
     text = re.sub('(\D)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
-    text = re.sub('(\d+)\-(\D)', '\\1 \\2', text) #keep '7-8', convert 'seven-week'
+    text = re.sub('(\d+)\-(\D)', '\\1 \\2', text).lower()
     
     nums, durs  = [], []
+        
     for convertFrom in checkConverts:
         
         re1, re2 = timeReDict[convertFrom]['timeSub1'], timeReDict[convertFrom]['timeSub2']
@@ -335,20 +336,21 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
         timeSpacer2 = re.compile('(\d+\.?\d?){0}(\-\d+\.?\d?{1})'.format(re2, re1))
         timeSpacer3 = re.compile('(\d+\.?\d?)({0})'.format(re1))
         timeSpacer4 = re.compile('(\d+\.?\d?)({0})'.format(re2))
-
         if timeSub.findall(text):
-            text = ''.join([x for x in timeSub.findall(text)[0]])
+            textUse = ''.join([x for x in timeSub.findall(text)[0]])
+        else:
+            textUse = text
+
+        if timeSpacer1.findall(textUse):
+            textUse = timeSpacer1.sub('\\1\\2', textUse)    
+        elif timeSpacer2.findall(textUse):
+            textUse = timeSpacer2.sub('\\1\\2', textUse)    
+        elif timeSpacer3.findall(textUse):
+            textUse = timeSpacer3.sub('\\1 \\2', textUse)    
+        elif timeSpacer4.findall(textUse):
+            textUse = timeSpacer4.sub('\\1 \\2', textUse)    
         
-        if timeSpacer1.findall(text):
-            text = timeSpacer1.sub('\\1\\2', text)    
-        elif timeSpacer2.findall(text):
-            text = timeSpacer2.sub('\\1\\2', text)    
-        elif timeSpacer3.findall(text):
-            text = timeSpacer3.sub('\\1 \\2', text)    
-        elif timeSpacer4.findall(text):
-            text = timeSpacer4.sub('\\1 \\2', text)    
-        
-        splitWords = text.lower().strip().split()
+        splitWords = textUse.lower().strip().split()
         strToNumConvert = []
         for word in splitWords:
             if word in numberDict:
@@ -356,7 +358,7 @@ def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
             else:
                 strToNumConvert.append(word)
         strToNumConvert = ' '.join(strToNumConvert)
-       
+
         nums, durs = enumAgeStrings(nums, durs, strToNumConvert = strToNumConvert, 
             convertFrom = convertFrom, convertTo = convertTo)
 
@@ -457,14 +459,14 @@ def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day',
         times = set(timeMatches2.findall(strToNumConvert)) 
     else:
         times = [] 
-    
+
     if timeMatchesDur1.findall(strToNumConvert):
-        timeDurs = set(timeMatchesDur1.findall(strToNumConvert)[0])
+        timeDurs = set(timeMatchesDur1.findall(strToNumConvert))
     elif timeMatchesDur2.findall(strToNumConvert):
-        timeDurs = set(timeMatchesDur2.findall(strToNumConvert)[0])   
+        timeDurs = set(timeMatchesDur2.findall(strToNumConvert))   
     else:
         timeDurs = []
-    
+
     for match in times:
         for x in match:
             if len(x.split('-')) == 2:
@@ -476,7 +478,7 @@ def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day',
                     print(str(err))
             else:
                 try:
-                    if x not in timeDurs:
+                    if x not in [''.join(x) for x in timeDurs]:
                         nums.append(float(x)*convertCoef)
                 except ValueError:
                     continue
@@ -499,7 +501,7 @@ def enumAgeStrings(nums, durs, strToNumConvert, convertFrom = 'day',
                     continue
                 except Exception as err:
                     print(str(err))
-
+    
     return nums, durs
 
 

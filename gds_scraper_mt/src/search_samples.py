@@ -35,13 +35,13 @@ def get_sample_data(query, retmax=50, sort='relevance', api_key="", DEBUG=0):
 
     ### More DB options here : https://www.ncbi.nlm.nih.gov/books/NBK3837/
     db = '?db=' + 'gds'
-    query = '&term=' + query
+    query_kw = '&term=' + query
     hist_api = "&usehistory=y"
     ret_max = '&retmax=' + str(retmax)
     sort = '&sort=' + sort
 
     ### Get the webpage with the IDs for the articles you'll want to fetch
-    url_search = esearch_base + db + query + hist_api + ret_max + sort
+    url_search = esearch_base + db + query_kw + hist_api + ret_max + sort
     if DEBUG >= 2:
         print(f'Search URL : {url_search}')
 

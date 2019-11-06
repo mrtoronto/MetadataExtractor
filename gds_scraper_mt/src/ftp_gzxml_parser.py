@@ -1,75 +1,12 @@
+from tqdm import tqdm
 from lxml import etree, objectify
 import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
 import tarfile, os, urllib, gzip, re
+from src.geo_extraction_funcs import *
 
-def tar_gz_extracter(url):
-    """
-    This function will take a FTP URL and download then extract the tar-gzipped file (.tgz).
-    The first try: except: loop will catch the rare `ContentTooShortError`. I believe this appears in very big runs but its so infrequent, I haven't been able to fully diagnosis it.
-    The second try: except: loop will trigger when there isn't an .xml file in the .tgz file. Currently it prints the files as I was debugging but this probably isn't necessary. Would be good to mark it somehow..?
-
-        Args:
-            `url` - Str: Series FTP URL leading to a .tgz file
-
-        Returns:
-            `xml_name` - Str: Name of .xml file that was extracted.
-    """
-
-    try:
-        f_url = urllib.request.urlretrieve(url, filename=None)[0]
-    except urllib.error.ContentTooShortError as e:
-        print(f'URL too short: {url}')
-        return None
-    base_name = os.path.basename(url)
-
-    file_name, file_extension = os.path.splitext(base_name)
-    tar = tarfile.open(f_url)
-
-    try:
-        xml_name = [i for i in tar.getnames() if re.match('.*.xml', str(i))][0]
-    except:
-        xml_name = ''
-        print(tar.getnames())
-        return None
-    tar.extract(xml_name, path = f'output/xml/')
-
-    tar.close()
-
-    return xml_name
-
-
-def geoSampleCellCheck(sample_dict,
-                    parseLocations = ['treatment_protocol', 'growth_protocol'],
-                    checkLocations = ['sample_cell_line', 'sample_cell_type'],
-                    cellDetectKWs = ['DMEM', 'FBS', 'bovine serum', 'passage']):
-
-    """
-    Function used to create the 'cells' field in the output dictinary.
-    Function will check locations in `parseLocations` using a keyword match. If it finds any keywords listed in `cellDetectKWs` argument then the functin returns True.
-    The function will also return True if a field in `checkLocations` is not blank. These fields are characteristic fields that are left blank in non-cell experiments.
-
-        Args:
-            `sample_dict` - Dict: Contains {sampleID : data} key-value pairs for each element in the selected sample.
-            `parseLocations` - List: Locations to use keywords to parse whether there are cells or not
-            `checkLocations` - List: Location to check for any content at all. No cells means no content in these places.
-            `cellDetectKWs` - List:
-
-        Returns:
-            True/False depending on the input data.
-    """
-    for parseLocation in parseLocations:
-        for cellDetectKW in cellDetectKWs:
-            if cellDetectKW in sample_dict[parseLocation]:
-                return True
-    for checkLocation in checkLocations:
-        if sample_dict[checkLocation] != '':
-            return True
-
-    return False
-
-def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, keep_files = [None]):
+def xml_parser(url, sample_list, parse_platforms = False, DEBUG = 0, multichannel = False, keep_files = [None]):
     """
     This function will take in the URL for a Series FTP .tgz file, download the file, extract the .xml file from the compressed directory and then parse the .xml.
 
@@ -105,7 +42,7 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
                         'sample_type' : ,
                         'sample_sex' : ,
                         'sample_tissue' : ,
-                        'sample_age' : Sometimes has age but needs to be parsed and converted. 
+                        'sample_age' : Sometimes has age but needs to be parsed and converted.
                         'sample_indication' : ,
                         'sample_genotype' : ,
                         'sample_cell_line' : Can be used as a check to filter cell experiments,
@@ -147,17 +84,24 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
             elem.tag = elem.tag[i+1:]
     ####
 
-
+    pmids, series_acc_numbers, series_summary = [], [], []
+    series_overalldesign, series_zip = [], []
     for series in root.findall('./Series'):
-        pmids = [i.text for i in series.findall('./Pubmed-ID')]
-        series_acc_numbers = [i.text for i in series.findall('./Accession')]
-        series_pmid_dict = {key:value for (key,value) in list(zip(series_acc_numbers, pmids))}
+        pmids += [i.text for i in series.findall('./Pubmed-ID')]
+        series_acc_numbers += [i.text for i in series.findall('./Accession')]
+        series_summary += [i.text.strip() for i in series.findall('./Summary')]
+        series_overalldesign += [i.text.strip() for i in series.findall('./Overall-Design')]
+        series_zip += list(zip(series_acc_numbers, pmids, series_summary, series_overalldesign))
+    series_pmid_dict = {key: {'pmid':pmid, 'series_summary': series_summary, 'series_design':series_design} for (key, pmid, series_summary, series_design) in series_zip}
+
 
     sample_row_list = []
     samples_dict = {}
     series_pubmed_id_dict = {}
     for samples in root.findall('./Sample'):
         sample_id = samples.attrib['iid']
+        if sample_id not in sample_list:
+            continue
         channel_num = np.max([int(i.text) for i in samples.findall('./Channel-Count')])
         if multichannel == False:
             if int(channel_num) > 1:
@@ -180,11 +124,12 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
                                 'sample_genotype' : '',
                                 'sample_cell_line' : '',
                                 'expression' : '',
-                                'cells' : ''
+                                'cells' : '',
+                                'age_func' : ''
                                 }
                 samples_dict[sample_id] = sample_dict
 
-                sample_row_list.append(sample_dict)
+                #sample_row_list.append(sample_dict)
                 continue
         sample_source = ''
         organism = ''
@@ -243,23 +188,23 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
 
                 for char_value in sample_element.findall('./Characteristics'):
                     try:
-                        if lower(char_value.attrib['tag']) == 'cell type':
+                        if char_value.attrib['tag'].lower() == 'cell type':
                             sample_cell_type = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'cell line':
+                        if char_value.attrib['tag'].lower() == 'cell line':
                             sample_cell_line = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'sample type':
+                        if char_value.attrib['tag'].lower() == 'sample type':
                             sample_type = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'sex':
+                        if char_value.attrib['tag'].lower() == 'sex':
                             sample_sex = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'tissue':
+                        if char_value.attrib['tag'].lower() == 'tissue':
                             sample_tissue = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'age':
+                        if char_value.attrib['tag'].lower() == 'age':
                             sample_age = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'indication':
+                        if char_value.attrib['tag'].lower() == 'indication':
                             sample_indication = char_value.text.strip()
-                        if lower(char_value.attrib['tag']) == 'genotype':
+                        if char_value.attrib['tag'].lower() == 'genotype':
                             sample_genotype = char_value.text.strip()
-                    except:
+                    except Exception as e:
                         pass
 
         if 'RNA' in sample_source or 'RNA' in molecule:
@@ -287,10 +232,10 @@ def xml_parser(url, parse_platforms = False, DEBUG = 0, multichannel = False, ke
                         'sample_genotype' : sample_genotype,
                         'sample_cell_line' : sample_cell_line,
                         'expression' : expression,
-                        'cells' : ''
+                        'cells' : '',
+                        'age_func' : ''
                         }
         sample_dict['cells'] = geoSampleCellCheck(sample_dict)
         samples_dict[sample_id] = sample_dict
-        sample_row_list.append(sample_dict)
 
     return series_pmid_dict, samples_dict

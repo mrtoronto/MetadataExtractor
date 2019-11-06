@@ -1,3 +1,5 @@
+import os.path
+from os import path
 import itertools, os, re, requests, datetime
 import pandas as pd
 import xml.etree.ElementTree as ET
@@ -33,11 +35,15 @@ def geo_txt_parse(loc_query_list, keep_files = [None]):
                         'sample' : sample,
                         'contents' : contents}
     """
-    
+
     row_list = []
     rows_dict = {}
 
     for filename, query_name in loc_query_list:
+        if not path.exists(filename):
+            print(f'failed on {filename}')
+            continue
+
         series_text_list = []
         sample_text_list = []
         platform_text_list = []
@@ -118,7 +124,11 @@ def geo_txt_parse(loc_query_list, keep_files = [None]):
                                     'platform_accession' : platform_accession,
                                     'platform_ftp' : platform_ftp,
                                     'sample' : sample,
-                                    'contents' : contents}
+                                    'contents' : contents,
+                                    'description' : '',
+                                    'treatment_protocol' : '', 
+                                    'growth_protocol' : '',
+                                    'cells' : ''}
             row_list.append(row)
 
         if 'txt' not in keep_files:

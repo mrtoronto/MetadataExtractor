@@ -143,7 +143,7 @@ def geoAgeExtract(sample_dict, checkCell = True,
             return charAge, 'Sample'
     elif charAge == nullReturn and len(ageCounter) > 0:
         return sum(ageCounter), 'Sample'
-    else:
+    else: ### charAge == nullReturn
         if tryAgeStudy is True:
             gseAttempt, flagged = gseAgeExtract(sample_dict = sample_dict, convertTo = convertTo,
                 checkConverts = checkConverts, parseIDs = parseStudyIDs,
@@ -160,7 +160,6 @@ def geoAgeExtract(sample_dict, checkCell = True,
                 return gseAttempt, 'Study'
         else:
             return nullReturn, 'Sample'
-    return 'why me?'
 
 def numericTimeConvert(text, convertTo = 'week', checkConverts = ['day', 'week',
     'month', 'year'], nullReturn = 'n/a'):
@@ -454,15 +453,15 @@ def pmidSectionExtraction(pmidContent, sectionID, possibleSections = ['abstract'
 
     if len(links) > 1:
         if pmcPreference is True:
-            paperURL = [x for x in links if '/pmc/articles/pmid/' in x.lower()]
+            paperURL = [x for x in links if ('/pmc/articles/pmid/' in x.lower())]
+            paperURL = [x for x in links if ('http' in x.lower())]
             if len(paperURL) > 1:
                 raise Exception('Multiple PMC links found for a single paper?')
-
             elif len(paperURL) == 1:
                 links = paperURL
             else:
-                print('No PMC text')
-                return ''
+                pass # links = links[0]
+
     winLink, winText, winDiv = maxSectionMatch(links = links,
                 possibleSections = possibleSections, soupAttempts = soupAttempts,
                 nullReturn = nullReturn)
@@ -471,6 +470,24 @@ def pmidSectionExtraction(pmidContent, sectionID, possibleSections = ['abstract'
                 soupDiv = winDiv, nullReturn = nullReturn)
 
     return sectionText
+
+
+
+def findTextInSectionTexts(links, possibleSections, nullReturn):
+    MAX_RETRIES = 20
+    adapter = requests.adapters.HTTPAdapter(max_retries=MAX_RETRIES)
+
+    for link in links:
+        linkResults[link] = dict()
+
+        session = requests.Session()
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
+
+        linkGet = session.get(link).text.lower()
+        linkResults[link]['text'] = linkGet
+
+        linkResults[link]['divs'] = dict()
 
 
 
@@ -553,7 +570,6 @@ def maxSectionMatch(links, possibleSections = ['abstract', 'introduction',
     linkResults = dict()
     for link in links:
         linkResults[link] = dict()
-
         session = requests.Session()
         session.mount('https://', adapter)
         session.mount('http://', adapter)
@@ -628,7 +644,10 @@ def geoSampleCellCheck(sample_dict,
             if cellDetectKW in sample_dict[parseLocation]:
                 return True
     for checkLocation in checkLocations:
-        if sample_dict[checkLocation] != '':
-            return True
+        try:
+            if sample_dict[checkLocation] != '':
+                return True
+        except:
+            continue
 
     return False

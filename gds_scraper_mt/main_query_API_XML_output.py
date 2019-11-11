@@ -26,7 +26,8 @@ def main(sampleIDs, organism, out_path, multichannel_flag, cells_flag, metadata_
                     DEBUG=1,
                     out_path = out_path,
                     keep_files = keep_files_list,
-                    out_types = out_types_list
+                    out_types = out_types_list,
+                    run_type = run_type
                     )
     print(f'Scrape successful. File saved to {out_path}')
     return scrape_dict
@@ -35,9 +36,9 @@ def main(sampleIDs, organism, out_path, multichannel_flag, cells_flag, metadata_
 #######################################################
 
 ### SampleIDs parameters
-num_samples = 15
+num_samples = 0
 ### Set to False for random sample, else pull `num_samples` samples consecutively starting at a random sample.
-samples_in_order = False
+samples_in_order = True
 
 sampleIDs = pd.read_csv('data/GEO_MusmusculusSamples.csv', index_col=[0], names=['sample_ID'], header=0)['sample_ID'].unique()
 
@@ -47,16 +48,27 @@ if samples_in_order == True:
 else:
     sampleIDs = list(np.random.choice(sampleIDs, num_samples))
 
-samples_with_age_char = ['GSM1369233', 'GSM1255384', 'GSM1369233']
-sampleIDs = sampleIDs + samples_with_age_char
+
+### GSM1010177 - KO extract
+### GSM1373723 - KO extract
+### GSM1339550 - KO extract
+### GSM1524918 - KO extract
+#samples_with_age_char = ['GSM1369233', 'GSM1255384', 'GSM1369233', 'GSM1010177', 'GSM1373723', 'GSM1339550', 'GSM1524918', 'GSM1674196']
+### GSM1034523 - alpha in treatment_protocol
+### GSM1010177 - PMC and Nature articles
+### GSM1083104 - PMC and JVI articles
+#inter_sample = ['GSM1034523', 'GSM1010177', 'GSM1083104']
+test = ['GSM437480']
+sampleIDs = sampleIDs + test
 
 organism = 'Mus musculus'
 out_path = 'output/15_run1'
-multichannel_flag = False
-cells_flag = False
+multichannel_flag = True
+cells_flag = True
 metadata_filter = False
-keep_files_list = [None]
+keep_files_list = ['xml']
 out_types_list = ['json', 'csv']
+run_type='append'
 
 
 if __name__ == "__main__":

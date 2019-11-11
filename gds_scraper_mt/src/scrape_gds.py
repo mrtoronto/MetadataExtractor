@@ -6,6 +6,7 @@ from src.search_samples import get_sample_data
 from src.geo_parser import geo_txt_parse
 from src.ftp_gzxml_parser import xml_parser
 from src.geo_extraction_funcs import *
+from src.processing_data import final_processing_loop
 
 def scrape_gds(query_terms,
                 api_key,
@@ -15,6 +16,7 @@ def scrape_gds(query_terms,
                 metadata_filter = False,
                 out_path = '/output/test',
                 keep_files = [None],
+                run_type = 'append',
                 out_types = ['json', 'csv']):
 
     """
@@ -23,7 +25,7 @@ def scrape_gds(query_terms,
     The list of filenames and associated sampleIDs is fed to `src.geo_parser.geo_txt_parse()` which will extract the sample's sample, series and platform data. This function returns a dictionary with GSM ID keys and data dictionary values.
     The series FTP links are fed individual to `src.ftp_gzxml_parser.xml_parser()` to gather metadata on samples in each series. This function returns a dictionary of samples from that series.
     Before the data is returned, a final parsing loop is run that will update the samples with the sample's metadata, run regex checks over certain text blocks, and run the age-extraction function.
-    The data is returned in the format specified by `out_types` at the location specified in `out_path`.
+    The data is returned in the format specified by `out_types` at the location specified in `out_path`. If `run_type` is set to `append`, progam will check for a pre-existing file to append to and create one if there isn't an existing option. Setting `run_type` to `new` will overwrite any existing file at `out_path`.
 
         Args:
             `query_terms` - Series/list: Terms to feed into the API
@@ -34,6 +36,7 @@ def scrape_gds(query_terms,
             `metadata_filter` - Boolean: Flag telling the program to skip samples without any series metadata
             `out_path` - Str: Output path, does not include extension as the correct extension will be added. Defaults to /output/test
             `keep_files` - List: Flags to keep certain files used during the process. Options include 'txt' and 'xml'.
+            `run_type` - Str: Set to `new` to create a new file at `out_path`. Set to `append` to append to an existing file at `out_path`.
             `out_types` - List: Output file type. Options include 'json' and 'csv'
 
         Returns:
@@ -51,7 +54,8 @@ def scrape_gds(query_terms,
     for file_type in out_types:
         if (file_type != 'json') and (file_type != 'csv') and (file_type is not None):
             raise ValueError(f'{file_type} is not a valid option for `out_type`. Please enter either `csv` and/or `json`.')
-
+    if (run_type != 'new') and (run_type != 'append'):
+        raise ValueError(f'{run_type} is not a valid option for `run_type`. Please enter either `new` or `append`.')
     ### `parse_list` elements will be lists containing [filename of sample API data, sample ID]
     ### [GSM4667_19-10-31-1954_fetch.txt, GSM4667]
     parse_list=[]
@@ -111,85 +115,34 @@ def scrape_gds(query_terms,
         series_pmid_dict.update(xml_pmid_list)
         samples_metadata_dict.update(series_meta_dict)
 
-    ### Run through all the requested samples, add metadata and PMID to `text_file_dict`
+    ### Do final processing on samples
+    ### Start by adding metadata then adding derived fields
     print('Final parsing loop')
-    text_file_dict_copy = text_file_dict.copy()
-    for sample_id in tqdm(text_file_dict_copy.keys(), total=len(text_file_dict_copy.keys())):
-
-        text_file_dict[sample_id].update(samples_metadata_dict[sample_id])
-        ### If multichannel == False, `xml_parser` will mark the multichannel samples in the metadata,
-        ### this actually removes them.
-        if (multichannel == False) and (text_file_dict[sample_id]['description'] == 'multi'):
-            text_file_dict.pop(sample_id, None)
-            continue
-
-        ### Filters samples without metadata
-        if (metadata_filter == True) and (text_file_dict[sample_id]['description'] == ''):
-            text_file_dict.pop(sample_id, None)
-            continue
-
-        ### Filters cell samples
-        if (cells_flag == False) and (text_file_dict[sample_id]['cells'] == True):
-            text_file_dict.pop(sample_id, None)
-            continue
-
-        sample_series_acc_num = text_file_dict[sample_id]['series_accession']
-        series_metadict = series_pmid_dict[sample_series_acc_num]
-
-        ### Hoping to create a high level split for different types of samples but didn't get very far into it
-        """if re.findall('(wild\s?type)', text_file_dict[sample_id]['sample'].lower()):
-            text_file_dict[sample_id]['wild_type'] = True
-        else:
-            text_file_dict[sample_id]['wild_type'] = False
-
-        if re.findall('(treatment[a-z\s]*with)|(treated[a-z\s]with)', text_file_dict[sample_id]['sample'].lower()):
-            text_file_dict[sample_id]['molecule_bool'] = True
-        else:
-            text_file_dict[sample_id]['molecule_bool'] = False
-
-        if re.findall('([+-]/[+-])', text_file_dict[sample_id]['sample'].lower()):
-            text_file_dict[sample_id]['ko_bool'] = True
-        else:
-            text_file_dict[sample_id]['ko_bool'] = False"""
-
-        ### If the sample's series has a PMID,
-        if series_metadict["pmid"] != '':
-            text_file_dict[sample_id]['pmid'] = f'https://www.ncbi.nlm.nih.gov/pubmed/{series_metadict["pmid"]}'
-
-            text_file_dict[sample_id]['series_summary'] = series_metadict['series_summary']
-            text_file_dict[sample_id]['series_design'] = series_metadict['series_design']
-
-            ### May be worth doing running this section on the set of PMID links rather than every sample
-            root = ET.fromstring(requests.get(text_file_dict[sample_id]['pmid']).content)
-            for elem in root.getiterator():
-                if not hasattr(elem.tag, 'find'): continue
-                i = elem.tag.find('}')
-                if i >= 0:
-                    elem.tag = elem.tag[i+1:]
-            try:
-                ### Index [0] of findall results is the title <h3>Abstract</h3>
-                text_file_dict[sample_id]['abstract_article'] = list(root.findall('.//div[@class="rprt_all"]//div[@class="abstr"]/')[1].itertext())[0]
-            except:
-                text_file_dict[sample_id]['article_abstract'] = ''
-            try:
-                text_file_dict[sample_id]['article_title'] = root.findall('.//div[@class="rprt_all"]//h1')[0].text
-            except:
-                text_file_dict[sample_id]['article_title'] = ''
-        ### If no PMID,
-        else:
-            text_file_dict[sample_id]['pmid'] = ''
-            text_file_dict[sample_id]['series_summary'] = ''
-            text_file_dict[sample_id]['series_design'] = ''
-            text_file_dict[sample_id]['abstract_article'] = ''
-            text_file_dict[sample_id]['article_title'] = ''
-
-        text_file_dict[sample_id]['age_func'] = geoAgeExtract(text_file_dict[sample_id])
+    text_file_dict = final_processing_loop(text_file_dict, samples_metadata_dict, series_pmid_dict, multichannel, metadata_filter, cells_flag)
 
     ### Export data
-    if 'json' in out_types:
-        with open(f'{out_path}.json', 'w') as fout:
-            json.dump(text_file_dict, fout, indent = 4)
-    if 'csv' in out_types:
-        pd.DataFrame.from_dict(text_file_dict, orient='index').to_csv(f'{out_path}.csv')
+    if run_type == 'new':
+        if 'json' in out_types:
+            with open(f'{out_path}.json', 'w') as fout:
+                json.dump(text_file_dict, fout, indent = 4)
+        if 'csv' in out_types:
+            pd.DataFrame.from_dict(text_file_dict, orient='index').to_csv(f'{out_path}.csv')
+    elif run_type == 'append':
+        if 'json' in out_types:
+            try:
+                with open(f'{out_path}.json', 'r') as f:
+                    pre_existing_data = json.load(f)
+            except:
+                print('No pre-existing data.')
+                pre_existing_data = dict()
+            text_file_dict = {k : v for (k,v) in text_file_dict.items() if k not in pre_existing_data.keys()}
+            pre_existing_data.update(text_file_dict)
+            with open(f'{out_path}.json', 'w') as fout:
+                json.dump(pre_existing_data, fout, indent = 4)
+        if 'csv' in out_types:
+            pre_existing_data = pd.read_csv(f'{out_path}.csv', header=0, index_col=0).to_dict(orient='index')
+            text_file_dict = {k : v for (k,v) in text_file_dict.items() if k not in pre_existing_data.keys()}
+            pre_existing_data.update(text_file_dict)
 
+            pd.DataFrame.from_dict(pre_existing_data, orient='index').to_csv(f'{out_path}.csv')
     return text_file_dict

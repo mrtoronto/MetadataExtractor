@@ -70,6 +70,7 @@ def scrape_gds(query_terms,
             if len(search_ids_file) == 0:
                 print('didnt have file')
                 search_ids_file = get_sample_data(query=query_term, api_key=api_key)
+                time.sleep(.5)
             else:
                 search_ids_file = search_ids_file[0]
             parse_list.append([search_ids_file, query_term])
@@ -77,7 +78,7 @@ def scrape_gds(query_terms,
         else:
             search_ids_file = get_sample_data(query=query_term, api_key=api_key)
             parse_list.append([search_ids_file, query_term])
-        time.sleep(.5)
+            time.sleep(.5)
 
     """
     `txt_file_dict` elements are lists containing the following:

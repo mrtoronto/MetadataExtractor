@@ -39,7 +39,7 @@ def scrape_gds(query_terms,
             `keep_files` - List: Flags to keep certain files used during the process. Options include 'txt' and 'xml'.
             `run_type` - Str: Set to `new` to create a new file at `out_path`. Set to `append` to append to an existing file at `out_path`.
             `out_types` - List: Output file type. Options include 'json' and 'csv'
-            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future. 
+            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future.
 
         Returns:
             `text_file_dict` - Dict: Contains {sampleID : data} key-value pairs for all the requested samples.
@@ -54,7 +54,7 @@ def scrape_gds(query_terms,
         if (file_type != 'txt') and (file_type != 'xml') and (file_type is not None):
             raise ValueError(f'{file_type} is not a valid option for `keep_files`. Please enter either `xml` and/or `csv`.')
     for file_type in out_types:
-        if (file_type != 'json') and (file_type != 'csv') and (file_type is not None):
+        if (file_type != 'json') and (file_type != 'csv') and (file_type != 'txt') and (file_type is not None):
             raise ValueError(f'{file_type} is not a valid option for `out_type`. Please enter either `csv` and/or `json`.')
     if (run_type != 'new') and (run_type != 'append'):
         raise ValueError(f'{run_type} is not a valid option for `run_type`. Please enter either `new` or `append`.')

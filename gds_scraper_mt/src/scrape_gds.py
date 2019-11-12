@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-import json, os, time, sys, re, requests
+import json, os, time, sys, re, requests, glob
 from tqdm import tqdm
 import pandas as pd
 from src.search_samples import get_sample_data
@@ -17,7 +17,8 @@ def scrape_gds(query_terms,
                 out_path = '/output/test',
                 keep_files = [None],
                 run_type = 'append',
-                out_types = ['json', 'csv']):
+                out_types = ['json', 'csv'],
+                local_files_list = [None]):
 
     """
     Function to take in an iterator of sample IDs and output either a .json or .csv file of the sample, series and platform data and the metadata associated with the sample's series.
@@ -38,6 +39,7 @@ def scrape_gds(query_terms,
             `keep_files` - List: Flags to keep certain files used during the process. Options include 'txt' and 'xml'.
             `run_type` - Str: Set to `new` to create a new file at `out_path`. Set to `append` to append to an existing file at `out_path`.
             `out_types` - List: Output file type. Options include 'json' and 'csv'
+            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future. 
 
         Returns:
             `text_file_dict` - Dict: Contains {sampleID : data} key-value pairs for all the requested samples.
@@ -62,8 +64,19 @@ def scrape_gds(query_terms,
     print('Creating sample .txt files')
     query_terms = list(set(query_terms))
     for query_term in tqdm(query_terms, total=len(query_terms)):
-        search_ids_file = get_sample_data(query=query_term, api_key=api_key)
-        parse_list.append([search_ids_file, query_term])
+
+        if 'txt' in local_files_list:
+            search_ids_file = glob.glob(f'output/txt/{query_term}*')
+            if len(search_ids_file) == 0:
+                print('didnt have file')
+                search_ids_file = get_sample_data(query=query_term, api_key=api_key)
+            else:
+                search_ids_file = search_ids_file[0]
+            parse_list.append([search_ids_file, query_term])
+
+        else:
+            search_ids_file = get_sample_data(query=query_term, api_key=api_key)
+            parse_list.append([search_ids_file, query_term])
         time.sleep(.5)
 
     """
@@ -127,6 +140,7 @@ def scrape_gds(query_terms,
                 json.dump(text_file_dict, fout, indent = 4)
         if 'csv' in out_types:
             pd.DataFrame.from_dict(text_file_dict, orient='index').to_csv(f'{out_path}.csv')
+
     elif run_type == 'append':
         if 'json' in out_types:
             try:
@@ -140,7 +154,11 @@ def scrape_gds(query_terms,
             with open(f'{out_path}.json', 'w') as fout:
                 json.dump(pre_existing_data, fout, indent = 4)
         if 'csv' in out_types:
-            pre_existing_data = pd.read_csv(f'{out_path}.csv', header=0, index_col=0).to_dict(orient='index')
+            try:
+                pre_existing_data = pd.read_csv(f'{out_path}.csv', header=0, index_col=0).to_dict(orient='index')
+            except:
+                print('No pre-existing data.')
+                pre_existing_data = dict()
             text_file_dict = {k : v for (k,v) in text_file_dict.items() if k not in pre_existing_data.keys()}
             pre_existing_data.update(text_file_dict)
 

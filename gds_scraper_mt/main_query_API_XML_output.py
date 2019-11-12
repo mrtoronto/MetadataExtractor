@@ -16,9 +16,15 @@ def main(sampleIDs, organism, out_path, multichannel_flag, cells_flag, metadata_
             `DEBUG` - Int: Number to determine the depth of debug print output (Deprecated).
             `out_path` - Str: Filename of the output file. Excludes extensions as that'll be added depending on the type of the output.
             `keep_files` - List: Intermediate files to keep. Options currently are 'xml' or 'txt'. Both may be selected at once.
-            `out_types` - List: File type of the output. Options currently include 'json' and 'csv'. Both may be selected at once.
-            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future. 
+            `out_types` - List: File type of the output. Options currently include 'json' and 'csv' and 'txt'. 'json' and 'csv' refer to results and 'txt' will be a list of samples run. Multiple may be selected at once. 
+            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future.
     """
+
+    if 'txt' in out_types_list:
+        with open(f'{out_path}.txt', 'w') as f:
+            for sample in sampleIDs:
+                f.writelines("%s\n" % sample for sample in sampleIDs)
+
     scrape_dict = scrape_gds(query_terms = sampleIDs,
                     api_key = "",
                     multichannel = multichannel_flag, ### In progress
@@ -64,15 +70,14 @@ test = ['GSM982723']
 sampleIDs = sampleIDs + test
 
 organism = 'Mus musculus'
-out_path = 'output/local_files_list_run'
+out_path = 'output/out_files/local_files_list_run'
 multichannel_flag = False
 cells_flag = False
 metadata_filter = True
 keep_files_list = ['txt']
-out_types_list = ['json', 'csv']
+out_types_list = ['json', 'csv', 'txt']
 run_type='append'
 local_files_list = ['txt']
 
 if __name__ == "__main__":
-
     main(sampleIDs, organism, out_path, multichannel_flag, cells_flag, metadata_filter, keep_files_list, out_types_list, run_type, local_files_list)

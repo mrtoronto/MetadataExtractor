@@ -18,7 +18,8 @@ def xml_parser(url = "", filename = "", sample_list = [], parse_platforms = Fals
 
     If multichannel == False and the parser finds more than 1 channel-count tag within a sample, it'll append an essentially empty data dict knowing it'll be filtered later.
         Args:
-            `url` - Str: Series FTP URL leading to a .tgz file
+            `url` - Str: Series FTP URL leading to a .tgz file. Blank if the file is already downloaded.
+            `filename` - Str: File location of XML file to be parsed. Used when program finds a relevant cached file.
             `parse_platforms` - Bool: If set to its default value, False, a platform URL will be rejected instead of parsed poorly.
             `DEBUG` - Int: Sets depth of debug messages. Mostly deprecated.
             `multichannel` - Bool: If set to False, multichannel files will be filtered out of the final result.

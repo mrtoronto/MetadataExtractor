@@ -39,7 +39,7 @@ def scrape_gds(query_terms,
             `keep_files` - List: Flags to keep certain files used during the process. Options include 'txt' and 'xml'.
             `run_type` - Str: Set to `new` to create a new file at `out_path`. Set to `append` to append to an existing file at `out_path`.
             `out_types` - List: Output file type. Options include 'json' and 'csv'
-            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future.
+            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Works for 'txt' and 'xml' files. 
 
         Returns:
             `text_file_dict` - Dict: Contains {sampleID : data} key-value pairs for all the requested samples.

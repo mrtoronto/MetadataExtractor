@@ -17,7 +17,7 @@ def main(sampleIDs, organism, out_path, multichannel_flag, cells_flag, metadata_
             `out_path` - Str: Filename of the output file. Excludes extensions as that'll be added depending on the type of the output.
             `keep_files` - List: Intermediate files to keep. Options currently are 'xml' or 'txt'. Both may be selected at once.
             `out_types` - List: File type of the output. Options currently include 'json' and 'csv' and 'txt'. 'json' and 'csv' refer to results and 'txt' will be a list of samples run. Multiple may be selected at once.
-            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently only works with `txt` but will add `xml` in the future.
+            `local_files_list` - List: List of types of files to check for a local version of before querying API and downloading. Currently works with options `txt` and `xml`. 
     """
 
     scrape_dict = scrape_gds(query_terms = sampleIDs,

@@ -30,7 +30,7 @@ def final_processing_loop(text_file_dict, samples_metadata_dict, series_pmid_dic
         sample_series_acc_num = text_file_dict[sample_id]['series_accession']
         series_metadict = series_pmid_dict[sample_series_acc_num]
 
-        ### Hoping to create a high level split for different types of samples but didn't get very far into it
+        ### Split for different categories of samples
         wildtype_bool_pattern = '(((wild)|(Wild)|([Ww]))[ -_]?((type)|(Type)|([Tt])))'
         if (re.findall(wildtype_bool_pattern, text_file_dict[sample_id]['sample'].lower())) or (re.findall(wildtype_bool_pattern, text_file_dict[sample_id]['description'].lower())):
             text_file_dict[sample_id]['wild_type'] = True
@@ -43,7 +43,7 @@ def final_processing_loop(text_file_dict, samples_metadata_dict, series_pmid_dic
         else:
             text_file_dict[sample_id]['molecule_bool'] = False
 
-        ko_bool_pattern = '(([+-]/[+-])|([Kk][-_ ]?[Oo])|(((knock)|(Knock))[- _]?((Out)|(out))))'
+        ko_bool_pattern = '(([Kk][-_ ]?[Oo])|(((knock)|(Knock))[- _]?((Out)|(out))))'
         if re.search(ko_bool_pattern, text_file_dict[sample_id]['sample'].lower()):
             text_file_dict[sample_id]['ko_bool'] = True
         else:

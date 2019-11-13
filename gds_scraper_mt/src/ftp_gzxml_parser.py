@@ -6,7 +6,7 @@ import numpy as np
 import tarfile, os, urllib, gzip, re
 from src.geo_extraction_funcs import *
 
-def xml_parser(url, sample_list, parse_platforms = False, DEBUG = 0, multichannel = False, keep_files = [None]):
+def xml_parser(url = "", filename = "", sample_list = [], parse_platforms = False, DEBUG = 0, multichannel = False, keep_files = [None]):
     """
     This function will take in the URL for a Series FTP .tgz file, download the file, extract the .xml file from the compressed directory and then parse the .xml.
 
@@ -56,22 +56,28 @@ def xml_parser(url, sample_list, parse_platforms = False, DEBUG = 0, multichanne
     if DEBUG >= 2:
         print(f'Parsing: {url}')
     if parse_platforms == False and re.search('.*GPL.*', url):
-        print('URL is to a platform and platform flag is off.')
-        column_list = ['sample_id', 'source', 'title', 'molecule', 'treatment_protocol', 'extract_protocol', 'growth_protocol', 'characteristic_list']
+        print(f'{url} is to a platform and platform flag is off.')
         return dict()
+
     ### Files are gzipped so open the url then extract only the XML file from the tar file
-    xml_filename = tar_gz_extracter(url)
+    if filename == "":
+        xml_filename = tar_gz_extracter(url)
+    elif url == "":
+        xml_filename = filename
+
     ### If you can't extract the XML, return a blank dictionary
     if xml_filename is None:
         return {}, {}
 
-    parser = etree.XMLParser(recover=True)
+    parser = etree.XMLParser(recover=True, encoding="utf-8")
     try:
         tree_ab = ET.parse(f'output/xml/{xml_filename}', parser=parser)
     except etree.XMLSyntaxError as e:
         print(e)
         return {}, {}
+
     root = tree_ab.getroot()
+
     if 'xml' not in keep_files:
         os.unlink('output/xml/' + xml_filename)
 
@@ -92,6 +98,7 @@ def xml_parser(url, sample_list, parse_platforms = False, DEBUG = 0, multichanne
         series_summary += [i.text.strip() for i in series.findall('./Summary')]
         series_overalldesign += [i.text.strip() for i in series.findall('./Overall-Design')]
         series_zip += list(zip(series_acc_numbers, pmids, series_summary, series_overalldesign))
+
     series_pmid_dict = {key: {'pmid':pmid, 'series_summary': series_summary, 'series_design':series_design} for (key, pmid, series_summary, series_design) in series_zip}
 
 
@@ -207,7 +214,7 @@ def xml_parser(url, sample_list, parse_platforms = False, DEBUG = 0, multichanne
                     except Exception as e:
                         pass
 
-        if 'RNA' in sample_source or 'RNA' in molecule:
+        if ('RNA' in sample_source) or ('RNA' in molecule):
             expression = True
         else:
             expression = False
@@ -232,10 +239,8 @@ def xml_parser(url, sample_list, parse_platforms = False, DEBUG = 0, multichanne
                         'sample_genotype' : sample_genotype,
                         'sample_cell_line' : sample_cell_line,
                         'expression' : expression,
-                        'cells' : '',
                         'age_func' : ''
                         }
-        sample_dict['cells'] = geoSampleCellCheck(sample_dict)
         samples_dict[sample_id] = sample_dict
 
     return series_pmid_dict, samples_dict

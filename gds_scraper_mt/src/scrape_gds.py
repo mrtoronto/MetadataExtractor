@@ -49,7 +49,6 @@ def scrape_gds(query_terms,
                 - Files will be named based on `out_path` with the corresponding extension added.
                 - Files have sampleID as key/index and then associated data as values/columns.
     """
-
     for file_type in keep_files:
         if (file_type != 'txt') and (file_type != 'xml') and (file_type is not None):
             raise ValueError(f'{file_type} is not a valid option for `keep_files`. Please enter either `xml` and/or `csv`.')
@@ -58,6 +57,19 @@ def scrape_gds(query_terms,
             raise ValueError(f'{file_type} is not a valid option for `out_type`. Please enter either `csv` and/or `json`.')
     if (run_type != 'new') and (run_type != 'append'):
         raise ValueError(f'{run_type} is not a valid option for `run_type`. Please enter either `new` or `append`.')
+
+    if os.path.isdir("output") == False:
+        os.mkdir('output')
+    if os.path.isdir("output/txt") == False:
+        os.mkdir('output/txt')
+    output_folder = '/'.join(out_path.split('/')[:-1])
+    if os.path.isdir(f"{output_folder}") == False:
+        os.mkdir(f"{output_folder}")
+
+    if 'txt' in out_types:
+        with open(f'{out_path}.txt', 'w') as f:
+            f.writelines("%s\n" % sample for sample in query_terms)
+
     ### `parse_list` elements will be lists containing [filename of sample API data, sample ID]
     ### [GSM4667_19-10-31-1954_fetch.txt, GSM4667]
     parse_list=[]
@@ -66,9 +78,8 @@ def scrape_gds(query_terms,
     for query_term in tqdm(query_terms, total=len(query_terms)):
 
         if 'txt' in local_files_list:
-            search_ids_file = glob.glob(f'output/txt/{query_term}*')
+            search_ids_file = glob.glob(f'output/txt/{query_term}_*')
             if len(search_ids_file) == 0:
-                print('didnt have file')
                 search_ids_file = get_sample_data(query=query_term, api_key=api_key)
                 time.sleep(.5)
             else:
@@ -89,7 +100,7 @@ def scrape_gds(query_terms,
                                 'series_ftp' : series_ftp,
                                 'platform' : platform,
                                 'platform_accession' : platform_accession,
-                                'platform_ftp' : platform_ftp,
+                                'platform_ftp  : platform_ftp,
                                 'sample' : sample,
                                 'contents' : contents,
                                 'description' : '',
@@ -98,7 +109,6 @@ def scrape_gds(query_terms,
     """
     print('Parsing the .txt files.')
     text_file_dict = geo_txt_parse(parse_list, keep_files = keep_files)
-
     ### Lists for later
     samples_series_accession_numbers = [i['series_accession'] for i in text_file_dict.values()]
     samples_series_ftp_links = [i['series_ftp'] for i in text_file_dict.values()]
@@ -124,7 +134,20 @@ def scrape_gds(query_terms,
                 -   `xml_pmid_list` is a dictionary of series -> PMID data mappings
                 -   `series_meta_dict` is a dictionary of the series meta data
             """
-            xml_pmid_list, series_meta_dict = xml_parser(url, sample_list=query_terms, multichannel = multichannel, keep_files = keep_files)
+            if 'xml' in local_files_list:
+                try: ### Try to extract GSE filename from url
+                    gse_sample_id = url.split('/')[-1].split('.')[0]
+                except: ### Return string that will not match a file if fail
+                    gse_sample_id = 'NO_MATCH'
+                ### Use GSE sample ID to find matching files
+                search_xml_file = glob.glob(f'output/xml/{gse_sample_id}.xml')
+                if len(search_xml_file) == 0:
+                    xml_pmid_list, series_meta_dict = xml_parser(url=url, sample_list=query_terms, multichannel = multichannel, keep_files = keep_files)
+                else: ## len() >= 1
+                    search_xml_file = search_xml_file[0].split('/')[-1]
+                    xml_pmid_list, series_meta_dict = xml_parser(filename=search_xml_file, sample_list=query_terms, multichannel = multichannel, keep_files = keep_files)
+            else:
+                xml_pmid_list, series_meta_dict = xml_parser(url=url, sample_list=query_terms, multichannel = multichannel, keep_files = keep_files)
         ### Update relevant dictionaries
         series_pmid_dict.update(xml_pmid_list)
         samples_metadata_dict.update(series_meta_dict)

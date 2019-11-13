@@ -24,10 +24,6 @@ def get_sample_data(query, retmax=50, sort='relevance', api_key="", DEBUG=0):
     now = datetime.datetime.now()
     if DEBUG >= 1:
         print(query)
-    if os.path.isdir("output") == False:
-        os.mkdir('output')
-    if os.path.isdir("output/txt") == False:
-        os.mkdir('output/txt')
 
     query_id = query
     file_name_fetch = 'output/txt/' + query + '_' + now.strftime("%y-%m-%d-%H%M") + '_fetch.txt'
@@ -41,7 +37,11 @@ def get_sample_data(query, retmax=50, sort='relevance', api_key="", DEBUG=0):
     sort = '&sort=' + sort
 
     ### Get the webpage with the IDs for the articles you'll want to fetch
-    url_search = esearch_base + db + query_kw + hist_api + ret_max + sort
+    if api_key != "":
+        url_search = esearch_base + db + query_kw + hist_api + ret_max + sort + f'&api_key={api_key}'
+    else:
+        url_search = esearch_base + db + query_kw + hist_api + ret_max + sort
+
     if DEBUG >= 2:
         print(f'Search URL : {url_search}')
 
@@ -63,8 +63,10 @@ def get_sample_data(query, retmax=50, sort='relevance', api_key="", DEBUG=0):
     efetch_base = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'
     rettype_mode = "&rettype=abstract&retmode=xml"
 
-    url_ab = efetch_base + '?db=gds' + QK + WE + rettype_mode + ret_max
-
+    if api_key != "":
+        url_ab = efetch_base + '?db=gds' + QK + WE + rettype_mode + ret_max  + f'&api_key={api_key}'
+    else:
+        url_ab = efetch_base + '?db=gds' + QK + WE + rettype_mode + ret_max
     try:
         docsab_resp = requests.get(url_ab)
     except requests.exceptions.ConnectionError as e:

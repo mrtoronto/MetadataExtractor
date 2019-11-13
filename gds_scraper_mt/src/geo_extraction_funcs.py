@@ -61,13 +61,21 @@ def tar_gz_extracter(url):
         print(f'URL too short: {url}')
         return None
     except urllib.error.URLError as e:
-        print(f'waiting 60 seconds and retrying')
+        print(e)
+        print(f'{url} failed with the above error. Waiting 60 seconds and retrying')
         time.sleep(61)
         try:
             f_url = urllib.request.urlretrieve(url, filename=None)[0]
-        except:
-            print('tgz extraction failed after waiting.')
-            return None
+        except urllib.error.URLError as e:
+            print(e)
+            print(f'{url} failed with the above error. Waiting 5 minutes and retrying')
+            time.sleep(int(61*5))
+            try:
+                f_url = urllib.request.urlretrieve(url, filename=None)[0]
+            except urllib.error.URLError as e:
+                print(e)
+                print(f'tgz extraction failed on {url} after waiting.')
+                return None
     base_name = os.path.basename(url)
 
     file_name, file_extension = os.path.splitext(base_name)
@@ -77,8 +85,7 @@ def tar_gz_extracter(url):
         xml_name = [i for i in tar.getnames() if re.match('.*.xml', str(i))][0]
     except:
         xml_name = ''
-        print(base_name)
-        print(tar.getnames())
+        print(f'{base_name} did not have an .xml file. Returning None')
         return None
     tar.extract(xml_name, path = f'output/xml/')
 
@@ -126,6 +133,7 @@ def geoAgeExtract(sample_dict, checkCell = True,
     for i in parseAgeIDs:
         if (i == 'characteristics') and (sample_dict['sample_age'] != ''):
             charAge = numericTimeConvert(text = sample_dict['sample_age'], convertTo = convertTo, nullReturn = nullReturn)
+
         elif (i == 'characteristics') and (sample_dict['sample_age'] == ''):
             charAge = nullReturn
         elif i != 'characteristics':
@@ -453,9 +461,10 @@ def pmidSectionExtraction(pmidContent, sectionID, possibleSections = ['abstract'
 
     if len(links) > 1:
         if pmcPreference is True:
-            paperURL = [x for x in links if ('/pmc/articles/pmid/' in x.lower())]
-            paperURL = [x for x in links if ('http' in x.lower())]
+            paperURL = [x for x in links if '/pmc/articles/pmid/' in x.lower()]
+            paperURL = [x for x in paperURL if 'http' in x.lower()]
             if len(paperURL) > 1:
+                print(paperURL)
                 raise Exception('Multiple PMC links found for a single paper?')
             elif len(paperURL) == 1:
                 links = paperURL
@@ -574,7 +583,17 @@ def maxSectionMatch(links, possibleSections = ['abstract', 'introduction',
         session.mount('https://', adapter)
         session.mount('http://', adapter)
 
-        linkGet = session.get(link).text.lower()
+        try:
+            linkGet = session.get(link).text.lower()
+        except:
+            print(link)
+            linkResults[link]['text'] = ''
+            linkResults[link]['divs'] = dict()
+            linkResults[link]['divs']['h1'] = 0
+            linkResults[link]['divs']['h2'] = 0
+            linkResults[link]['divs']['h6'] = 0
+            continue
+
         linkResults[link]['text'] = linkGet
 
         linkResults[link]['divs'] = dict()
